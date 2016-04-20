@@ -68,15 +68,15 @@ cl_int COpenCL::LoadKernel(char* name, char* code)
 	return 0;
 }
 
-cl_int COpenCL::RunKernel(BYTE* in1, BYTE* in2, int width, int height, int edge)
+cl_int COpenCL::RunFilterKernel(UINT* in1, UINT* in2, int width, int height, int edge)
 {
 	try
 	{
 		int n = width * height;
-		std::size_t datasize = n * sizeof(BYTE);
-		std::size_t tmpsize = edge * edge * sizeof(BYTE);
+		std::size_t datasize = n * sizeof(UINT);
+		std::size_t tmpsize = edge * edge * sizeof(UINT);
 		Buffer bIn1(*ctx, CL_MEM_READ_ONLY, datasize);
-		Buffer bIn2(*ctx, CL_MEM_READ_WRITE, datasize);
+		Buffer bIn2(*ctx, CL_MEM_WRITE_ONLY, datasize);
 		Buffer bTmp(*ctx, CL_MEM_READ_ONLY, tmpsize);
 
 		queue->enqueueWriteBuffer(bIn1, CL_TRUE, 0, datasize, in1);
@@ -88,6 +88,37 @@ cl_int COpenCL::RunKernel(BYTE* in1, BYTE* in2, int width, int height, int edge)
 		kernel->setArg(arg++, width);
 		kernel->setArg(arg++, height);
 		kernel->setArg(arg++, edge);
+
+		queue->enqueueNDRangeKernel(*kernel, NullRange, NDRange(width, height), NullRange);
+		queue->finish();
+		MessageBox(NULL, L"Done", L"Success", MB_OK); 
+
+		queue->enqueueReadBuffer(bIn2, CL_TRUE, 0, n, in2);
+	} 
+	catch(exception e)
+	{
+		MessageBox(NULL, L"Something wrong", L"ERROR", MB_OK); 
+	}
+
+	return 0;
+}
+
+cl_int COpenCL::RunAddNoizeKernel(UINT* in1, UINT* in2, int width, int height)
+{
+	try
+	{
+		int n = width * height;
+		std::size_t datasize = n * sizeof(UINT);
+		Buffer bIn1(*ctx, CL_MEM_READ_ONLY, datasize);
+		Buffer bIn2(*ctx, CL_MEM_WRITE_ONLY, datasize);
+
+		queue->enqueueWriteBuffer(bIn1, CL_TRUE, 0, datasize, in1);
+
+		int arg = 0;
+		kernel->setArg(arg++, bIn1);
+		kernel->setArg(arg++, bIn2);
+		kernel->setArg(arg++, width);
+		kernel->setArg(arg++, height);
 
 		queue->enqueueNDRangeKernel(*kernel, NullRange, NDRange(width, height), NullRange);
 		queue->finish();

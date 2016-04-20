@@ -66,13 +66,14 @@ void COpenCLImageFilterDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BUTTON2, m_InitButton);
 	DDX_Text(pDX, IDC_OPENCLSTATUS, m_sOpenCLStatus);
 	DDX_Control(pDX, IDC_IMAGEFILTERED, mImageFiltered);
-	//  DDX_Control(pDX, IDC_COMBOBOXEX1, m_PlatformsComboBox);
-	DDX_Control(pDX, IDC_LIST2, m_PlatformsListBox);
 	DDX_Control(pDX, IDC_BUTTON4, m_GetPLatformsButton);
 	DDX_Control(pDX, IDC_BUTTON5, m_GetDevicesButton);
-	DDX_Control(pDX, IDC_LIST3, m_GetDevicesListBox);
 	DDX_Control(pDX, IDC_BUTTON3, m_StartButton);
 	DDX_Text(pDX, IDC_EDIT2, m_nEdge);
+	DDX_Control(pDX, IDC_COMBO1, m_PlatformsListBox);
+	DDX_Control(pDX, IDC_COMBO2, m_GetDevicesListBox);
+	DDX_Control(pDX, IDC_IMAGEFILTERED2, mImageNoize);
+	DDX_Control(pDX, IDC_BUTTON6, m_NoizeButton);
 }
 
 BEGIN_MESSAGE_MAP(COpenCLImageFilterDlg, CDialogEx)
@@ -85,8 +86,9 @@ BEGIN_MESSAGE_MAP(COpenCLImageFilterDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON3, &COpenCLImageFilterDlg::OnBnClickedButton3)
 	ON_BN_CLICKED(IDC_BUTTON4, &COpenCLImageFilterDlg::OnBnClickedButton4)
 	ON_BN_CLICKED(IDC_BUTTON5, &COpenCLImageFilterDlg::OnBnClickedButton5)
-	ON_LBN_SELCHANGE(IDC_LIST2, &COpenCLImageFilterDlg::OnLbnSelchangeList2)
-	ON_LBN_SELCHANGE(IDC_LIST3, &COpenCLImageFilterDlg::OnLbnSelchangeList3)
+	ON_CBN_SELCHANGE(IDC_COMBO1, &COpenCLImageFilterDlg::OnCbnSelchangeCombo1)
+	ON_CBN_SELCHANGE(IDC_COMBO2, &COpenCLImageFilterDlg::OnCbnSelchangeCombo2)
+	ON_BN_CLICKED(IDC_BUTTON6, &COpenCLImageFilterDlg::OnBnClickedButton6)
 END_MESSAGE_MAP()
 
 
@@ -229,7 +231,7 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 		if(m_bIsOpenCLInit)
 		{
 			m_sOpenCLStatus = "Init";
-			m_StartButton.EnableWindow(true);
+			m_NoizeButton.EnableWindow(true);
 			UpdateData(false);
 			KillTimer(nIDEvent);
 		}
@@ -242,39 +244,39 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 void COpenCLImageFilterDlg::OnBnClickedButton3()
 {
 	// TODO: добавьте свой код обработчика уведомлений
-	if(m_OpenCL != NULL && m_bIsOpenCLInit && m_BmpIn != NULL)
+	if(m_OpenCL != NULL && m_bIsOpenCLInit && m_BmpNoize != NULL)
 	{
 		UpdateData(true);
 		HMODULE hModule = ::GetModuleHandle(nullptr);
 		HRSRC hRes = ::FindResource(hModule, MAKEINTRESOURCE(IDR_KERNEL1), L"KERNEL");
 		HGLOBAL res = ::LoadResource(hModule, hRes);
 		char *code = (char *)::LockResource(res);
-		int width = m_BmpIn->GetWidth();
-		int height = m_BmpIn->GetHeight();
+		int width = m_BmpNoize->GetWidth();
+		int height = m_BmpNoize->GetHeight();
 
-		if(m_OpenCL->LoadKernel("MultMatrix", code) != 0)
+		if(m_OpenCL->LoadKernel("Filter", code) != 0)
 		{ /* Error */ }
 
-		Gdiplus::BitmapData* bitmapDataIn = new Gdiplus::BitmapData();
-		m_BmpIn->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, bitmapDataIn);
+		Gdiplus::BitmapData* bitmapDataNoize = new Gdiplus::BitmapData();
+		m_BmpNoize->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, bitmapDataNoize);
 
 		
-		int stride = bitmapDataIn->Stride;
+		int stride = bitmapDataNoize->Stride;
 		int n = stride * height;
 
-		BYTE* in = (BYTE*)bitmapDataIn->Scan0;
-		BYTE* out = new BYTE[n];
+		UINT* in = (UINT*)bitmapDataNoize->Scan0;
+		UINT* out = new UINT[n];
 
 		for(int i = 0; i < n; i++)
 		{
 			out[i] = 0;
 		}
 
-		m_OpenCL->RunKernel(in, out, stride, height, m_nEdge);
+		m_OpenCL->RunFilterKernel(in, out, stride, height, m_nEdge);
 
-		m_BmpIn->UnlockBits(bitmapDataIn);
+		m_BmpNoize->UnlockBits(bitmapDataNoize);
  
-		m_BmpOut = reinterpret_cast<Gdiplus::Bitmap*>(Gdiplus::Bitmap::Bitmap(width, height, stride, PixelFormat32bppRGB, out).Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppRGB));
+		m_BmpOut = reinterpret_cast<Gdiplus::Bitmap*>(Gdiplus::Bitmap::Bitmap(width, height, stride, PixelFormat32bppRGB, (BYTE*)out).Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppRGB));
 
 		mImageFiltered.SetImage(m_BmpOut);
 	} else {
@@ -304,8 +306,7 @@ void COpenCLImageFilterDlg::OnBnClickedButton4()
 		m_PlatformsListBox.AddString(str);
 	});
 	
-	m_PlatformsListBox.SetSel(0);
-	m_GetDevicesButton.EnableWindow(true);
+	m_PlatformsListBox.SetCurSel(0);
 	m_GetPLatformsButton.EnableWindow(false);
 }
 
@@ -331,41 +332,70 @@ void COpenCLImageFilterDlg::OnBnClickedButton5()
 		m_GetDevicesListBox.AddString(str);
 	});
 	
-	m_GetDevicesListBox.SetSel(0);
-	//m_GetDevicesButton.EnableWindow(false);
+	m_GetDevicesListBox.SetCurSel(0);
+	m_GetDevicesButton.EnableWindow(false);
+}
+
+
+void COpenCLImageFilterDlg::OnCbnSelchangeCombo1()
+{
+	// TODO: добавьте свой код обработчика уведомлений
+	m_OpenCL->SetSelectedPlatform(m_PlatformsListBox.GetCurSel());
+	m_PlatformsListBox.EnableWindow(false);
+	m_GetDevicesButton.EnableWindow(true);
+}
+
+
+void COpenCLImageFilterDlg::OnCbnSelchangeCombo2()
+{
+	// TODO: добавьте свой код обработчика уведомлений
+	m_OpenCL->SetSelectedDevice(m_GetDevicesListBox.GetCurSel());
+	m_GetDevicesListBox.EnableWindow(false);
 	m_InitButton.EnableWindow(true);
 }
 
 
-void COpenCLImageFilterDlg::OnLbnSelchangeList2()
+void COpenCLImageFilterDlg::OnBnClickedButton6()
 {
 	// TODO: добавьте свой код обработчика уведомлений
-	int index = 0;
-	for( int i = 0; i < m_PlatformsListBox.GetCount(); i++ )
+	if(m_OpenCL != NULL && m_bIsOpenCLInit && m_BmpIn != NULL)
 	{
-		if(m_PlatformsListBox.GetSel( i ) > 0)
-		{
-			index = i;
-			break;
-		}
-	}
-	m_OpenCL->SetSelectedPlatform(index);
-	m_PlatformsListBox.EnableWindow(false);
-}
+		UpdateData(true);
+		HMODULE hModule = ::GetModuleHandle(nullptr);
+		HRSRC hRes = ::FindResource(hModule, MAKEINTRESOURCE(IDR_KERNEL1), L"KERNEL");
+		HGLOBAL res = ::LoadResource(hModule, hRes);
+		char *code = (char *)::LockResource(res);
+		int width = m_BmpIn->GetWidth();
+		int height = m_BmpIn->GetHeight();
 
+		if(m_OpenCL->LoadKernel("AddNoize", code) != 0)
+		{ /* Error */ }
 
-void COpenCLImageFilterDlg::OnLbnSelchangeList3()
-{
-	// TODO: добавьте свой код обработчика уведомлений
-	int index = 0;
-	for( int i = 0; i < m_GetDevicesListBox.GetCount(); i++ )
-	{
-		if(m_GetDevicesListBox.GetSel( i ) > 0)
+		Gdiplus::BitmapData* bitmapDataIn = new Gdiplus::BitmapData();
+		m_BmpIn->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, bitmapDataIn);
+
+		
+		int stride = bitmapDataIn->Stride;
+		int n = stride * height;
+
+		UINT* in = (UINT*)bitmapDataIn->Scan0;
+		UINT* out = new UINT[n];
+
+		for(int i = 0; i < n; i++)
 		{
-			index = i;
-			break;
+			out[i] = 0;
 		}
+
+		m_OpenCL->RunAddNoizeKernel(in, out, stride, height);
+
+		m_BmpIn->UnlockBits(bitmapDataIn);
+ 
+		m_BmpNoize = reinterpret_cast<Gdiplus::Bitmap*>(Gdiplus::Bitmap::Bitmap(width, height, stride, PixelFormat32bppRGB, (BYTE*)out).Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppRGB));
+
+		mImageNoize.SetImage(m_BmpNoize);
+
+		m_StartButton.EnableWindow(true);
+	} else {
+		/* Not Init */
 	}
-	m_OpenCL->SetSelectedDevice(index);
-	m_GetDevicesListBox.EnableWindow(false);
 }

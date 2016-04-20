@@ -1,7 +1,7 @@
-__kernel void MultMatrix(
-	__global __read_only unsigned char *in1,
-	__global __write_only unsigned char *in2,
-	__global __read_only unsigned char *tmp,
+__kernel void Filter(
+	__global __read_only unsigned int *in1,
+	__global __write_only unsigned int *in2,
+	__global __read_only unsigned int *tmp,
 	int width,
 	int height,
 	int edge)
@@ -19,7 +19,7 @@ __kernel void MultMatrix(
 		}
 	}
 
-    unsigned char x;
+    unsigned int x;
     for(int k = 0; k < edge * edge; k++)
 	{            
         for(int s = edge * edge - 1; s > k; s--)
@@ -34,4 +34,18 @@ __kernel void MultMatrix(
     }
 
 	in2[j * width + i] = tmp[edge * edge / 2];
+}
+
+__kernel void AddNoize(
+	__global __read_only unsigned int *in1,
+	__global __write_only unsigned int *in2,
+	int width,
+	int height)
+{
+	const int i = get_global_id(0);
+	const int j = get_global_id(1);
+
+	if ((i >= width) || (j >= height)) return;
+
+	in2[j * width + i] = in1[j * width + i];
 }

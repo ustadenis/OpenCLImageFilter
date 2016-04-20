@@ -97,7 +97,8 @@ public:
 	VECTOR_CLASS<Device> GetDevices();
 	cl_int CreateContext();
 	cl_int LoadKernel(char* name, char* code);
-	cl_int RunKernel(BYTE* m1, BYTE* m2, int width, int height, int edge);
+	cl_int RunFilterKernel(UINT* m1, UINT* m2, int width, int height, int edge);
+	cl_int RunAddNoizeKernel(UINT* m1, UINT* m2, int width, int height);
 	void SetSelectedPlatform(int num);
 	void SetSelectedDevice(int num);
 
