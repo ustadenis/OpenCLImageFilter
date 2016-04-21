@@ -39,6 +39,8 @@ __kernel void Filter(
 __kernel void AddNoize(
 	__global __read_only unsigned char *in1,
 	__global __write_only unsigned char *in2,
+	int counter,
+	int noizeLevel,
 	int width,
 	int height)
 {
@@ -47,5 +49,14 @@ __kernel void AddNoize(
 
 	if ((i >= width) || (j >= height)) return;
 
-	in2[j * width + i] = in1[j * width + i];
+	counter = counter + 1;
+
+	if(counter < (noizeLevel * width * height / 100))
+	{
+		in2[j * width + i] = 0;
+	}
+	else 
+	{
+		in2[j * width + i] = in1[j * width + i];
+	}
 }

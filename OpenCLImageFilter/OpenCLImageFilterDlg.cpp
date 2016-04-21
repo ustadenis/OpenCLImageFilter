@@ -13,6 +13,8 @@
 #endif
 
 static void InitOpenCL(PVOID* param);
+static void GetPlatformsThread(PVOID* param);
+static void GetDevicesThread(PVOID* param);
 
 // Диалоговое окно CAboutDlg используется для описания сведений о приложении
 
@@ -54,6 +56,7 @@ COpenCLImageFilterDlg::COpenCLImageFilterDlg(CWnd* pParent /*=NULL*/)
 	, m_sFindDir(_T(""))
 	, m_sOpenCLStatus(_T("Not Init"))
 	, m_nEdge(2)
+	, m_nNoizeLevel(20)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -74,6 +77,7 @@ void COpenCLImageFilterDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_COMBO2, m_GetDevicesListBox);
 	DDX_Control(pDX, IDC_IMAGEFILTERED2, mImageNoize);
 	DDX_Control(pDX, IDC_BUTTON6, m_NoizeButton);
+	DDX_Text(pDX, IDC_EDIT3, m_nNoizeLevel);
 }
 
 BEGIN_MESSAGE_MAP(COpenCLImageFilterDlg, CDialogEx)
@@ -125,6 +129,8 @@ BOOL COpenCLImageFilterDlg::OnInitDialog()
 
 	// TODO: добавьте дополнительную инициализацию
 	m_bIsOpenCLInit = false;
+	m_bIsPlatformsReady = false;
+	m_bIsDevicesReady = false;
 	m_OpenCL = new COpenCL();
 
 	return TRUE;  // возврат значения TRUE, если фокус не передан элементу управления
@@ -222,6 +228,24 @@ void COpenCLImageFilterDlg::InitOpenCL(PVOID* param)
 	dlg->m_bIsOpenCLInit = true;
 }
 
+void COpenCLImageFilterDlg::GetPlatformsThread(PVOID* param)
+{
+	COpenCLImageFilterDlg* dlg = (COpenCLImageFilterDlg*)param;
+
+	dlg->platforms = dlg->m_OpenCL->GetPlatforms();
+
+	dlg->m_bIsPlatformsReady = true;
+}
+
+void COpenCLImageFilterDlg::GetDevicesThread(PVOID* param)
+{
+	COpenCLImageFilterDlg* dlg = (COpenCLImageFilterDlg*)param;
+
+	dlg->devices = dlg->m_OpenCL->GetDevices();
+
+	dlg->m_bIsDevicesReady = true;
+}
+
 
 void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 {
@@ -232,6 +256,60 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 		{
 			m_sOpenCLStatus = "Init";
 			m_NoizeButton.EnableWindow(true);
+			UpdateData(false);
+			KillTimer(nIDEvent);
+		}
+	}
+	else if(nIDEvent == 1)
+	{
+		if(m_bIsPlatformsReady)
+		{
+			for( int i = 0; i < m_PlatformsListBox.GetCount(); i++ )
+			{
+				m_PlatformsListBox.DeleteString(i);
+			}
+
+			for_each(platforms.begin(), platforms.end(),
+					[&](Platform &platform)
+			{
+				STRING_CLASS pInfo;
+				static int num = 0;
+
+				platform.getInfo(CL_PLATFORM_NAME, &pInfo);
+				CStringW str(pInfo.data());
+				m_PlatformsListBox.AddString(str);
+			});
+	
+			m_PlatformsListBox.SetCurSel(0);
+			m_GetPLatformsButton.EnableWindow(false);
+
+			UpdateData(false);
+			KillTimer(nIDEvent);
+		}
+	}
+	else if(nIDEvent == 2)
+	{
+		if(m_bIsDevicesReady)
+		{
+			for( int i = 0; i < m_GetDevicesListBox.GetCount(); i++ )
+			{
+				m_GetDevicesListBox.DeleteString(i);
+			}
+
+			for_each(devices.begin(), devices.end(),
+					[&](Device &device)
+			{
+				STRING_CLASS pInfo;
+				static int num = 0;
+
+				device.getInfo(CL_DEVICE_NAME, &pInfo);
+				CStringW str(pInfo.data());
+				m_GetDevicesListBox.AddString(str);
+			});
+	
+			m_GetDevicesListBox.SetCurSel(0);
+			m_GetDevicesButton.EnableWindow(false);
+
 			UpdateData(false);
 			KillTimer(nIDEvent);
 		}
@@ -288,52 +366,18 @@ void COpenCLImageFilterDlg::OnBnClickedButton3()
 void COpenCLImageFilterDlg::OnBnClickedButton4()
 {
 	// TODO: добавьте свой код обработчика уведомлений
-	VECTOR_CLASS<Platform> platforms = m_OpenCL->GetPlatforms();
-
-	for( int i = 0; i < m_PlatformsListBox.GetCount(); i++ )
-	{
-		m_PlatformsListBox.DeleteString(i);
-	}
-
-	for_each(platforms.begin(), platforms.end(),
-			[&](Platform &platform)
-	{
-		STRING_CLASS pInfo;
-		static int num = 0;
-
-		platform.getInfo(CL_PLATFORM_NAME, &pInfo);
-		CStringW str(pInfo.data());
-		m_PlatformsListBox.AddString(str);
-	});
-	
-	m_PlatformsListBox.SetCurSel(0);
+	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)GetPlatformsThread, this, NULL, NULL);
 	m_GetPLatformsButton.EnableWindow(false);
+	SetTimer(1, 500, NULL);
 }
 
 
 void COpenCLImageFilterDlg::OnBnClickedButton5()
 {
 	// TODO: добавьте свой код обработчика уведомлений
-	VECTOR_CLASS<Device> devices = m_OpenCL->GetDevices();
-
-	for( int i = 0; i < m_GetDevicesListBox.GetCount(); i++ )
-	{
-		m_GetDevicesListBox.DeleteString(i);
-	}
-
-	for_each(devices.begin(), devices.end(),
-			[&](Device &device)
-	{
-		STRING_CLASS pInfo;
-		static int num = 0;
-
-		device.getInfo(CL_DEVICE_NAME, &pInfo);
-		CStringW str(pInfo.data());
-		m_GetDevicesListBox.AddString(str);
-	});
-	
-	m_GetDevicesListBox.SetCurSel(0);
+	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)GetDevicesThread, this, NULL, NULL);
 	m_GetDevicesButton.EnableWindow(false);
+	SetTimer(2, 500, NULL);
 }
 
 
@@ -386,7 +430,7 @@ void COpenCLImageFilterDlg::OnBnClickedButton6()
 			out[i] = 0;
 		}
 
-		m_OpenCL->RunAddNoizeKernel(in, out, stride, height);
+		m_OpenCL->RunAddNoizeKernel(in, out, m_nNoizeLevel, stride, height);
 
 		m_BmpIn->UnlockBits(bitmapDataIn);
  

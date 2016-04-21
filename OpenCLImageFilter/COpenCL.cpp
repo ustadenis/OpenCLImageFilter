@@ -103,7 +103,7 @@ cl_int COpenCL::RunFilterKernel(BYTE* in1, BYTE* in2, int width, int height, int
 	return 0;
 }
 
-cl_int COpenCL::RunAddNoizeKernel(BYTE* in1, BYTE* in2, int width, int height)
+cl_int COpenCL::RunAddNoizeKernel(BYTE* in1, BYTE* in2, int noizeLevel, int width, int height)
 {
 	try
 	{
@@ -114,9 +114,11 @@ cl_int COpenCL::RunAddNoizeKernel(BYTE* in1, BYTE* in2, int width, int height)
 
 		queue->enqueueWriteBuffer(bIn1, CL_TRUE, 0, datasize, in1);
 
-		int arg = 0;
+		int arg = 0, counter = 0;
 		kernel->setArg(arg++, bIn1);
 		kernel->setArg(arg++, bIn2);
+		kernel->setArg(arg++, counter);
+		kernel->setArg(arg++, noizeLevel);
 		kernel->setArg(arg++, width);
 		kernel->setArg(arg++, height);
 

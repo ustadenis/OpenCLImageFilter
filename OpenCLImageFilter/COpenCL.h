@@ -98,7 +98,7 @@ public:
 	cl_int CreateContext();
 	cl_int LoadKernel(char* name, char* code);
 	cl_int RunFilterKernel(BYTE* m1, BYTE* m2, int width, int height, int edge);
-	cl_int RunAddNoizeKernel(BYTE* m1, BYTE* m2, int width, int height);
+	cl_int RunAddNoizeKernel(BYTE* m1, BYTE* m2, int noizeLevel, int width, int height);
 	void SetSelectedPlatform(int num);
 	void SetSelectedDevice(int num);
 

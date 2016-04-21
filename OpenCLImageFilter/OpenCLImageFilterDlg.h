@@ -35,6 +35,8 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 	static void InitOpenCL(PVOID* param);
+	static void GetPlatformsThread(PVOID* param);
+	static void GetDevicesThread(PVOID* param);
 
 public:
 	CImageWnd mImage;
@@ -44,10 +46,17 @@ public:
 private:
 	CString m_sFindDir;
 	CButton m_InitButton;
+
 	bool m_bIsOpenCLInit;
+	bool m_bIsPlatformsReady;
+	bool m_bIsDevicesReady;
+
 	Gdiplus::Bitmap *m_BmpIn;
 	Gdiplus::Bitmap *m_BmpNoize;
 	Gdiplus::Bitmap *m_BmpOut;
+
+	VECTOR_CLASS<Platform> platforms;
+	VECTOR_CLASS<Device> devices;
 public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	CString m_sOpenCLStatus;
@@ -68,4 +77,5 @@ public:
 	CImageWnd mImageNoize;
 	CButton m_NoizeButton;
 	afx_msg void OnBnClickedButton6();
+	int m_nNoizeLevel;
 };
