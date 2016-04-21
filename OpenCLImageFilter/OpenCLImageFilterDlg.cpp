@@ -264,8 +264,8 @@ void COpenCLImageFilterDlg::OnBnClickedButton3()
 		int stride = bitmapDataNoize->Stride;
 		int n = stride * height;
 
-		UINT* in = (UINT*)bitmapDataNoize->Scan0;
-		UINT* out = new UINT[n];
+		BYTE* in = (BYTE*)bitmapDataNoize->Scan0;
+		BYTE* out = new BYTE[n];
 
 		for(int i = 0; i < n; i++)
 		{
@@ -378,8 +378,8 @@ void COpenCLImageFilterDlg::OnBnClickedButton6()
 		int stride = bitmapDataIn->Stride;
 		int n = stride * height;
 
-		UINT* in = (UINT*)bitmapDataIn->Scan0;
-		UINT* out = new UINT[n];
+		BYTE* in = (BYTE*)bitmapDataIn->Scan0;
+		BYTE* out = new BYTE[n];
 
 		for(int i = 0; i < n; i++)
 		{

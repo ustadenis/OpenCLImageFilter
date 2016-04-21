@@ -68,13 +68,13 @@ cl_int COpenCL::LoadKernel(char* name, char* code)
 	return 0;
 }
 
-cl_int COpenCL::RunFilterKernel(UINT* in1, UINT* in2, int width, int height, int edge)
+cl_int COpenCL::RunFilterKernel(BYTE* in1, BYTE* in2, int width, int height, int edge)
 {
 	try
 	{
 		int n = width * height;
-		std::size_t datasize = n * sizeof(UINT);
-		std::size_t tmpsize = edge * edge * sizeof(UINT);
+		std::size_t datasize = n * sizeof(BYTE);
+		std::size_t tmpsize = edge * edge * sizeof(BYTE);
 		Buffer bIn1(*ctx, CL_MEM_READ_ONLY, datasize);
 		Buffer bIn2(*ctx, CL_MEM_WRITE_ONLY, datasize);
 		Buffer bTmp(*ctx, CL_MEM_READ_ONLY, tmpsize);
@@ -103,12 +103,12 @@ cl_int COpenCL::RunFilterKernel(UINT* in1, UINT* in2, int width, int height, int
 	return 0;
 }
 
-cl_int COpenCL::RunAddNoizeKernel(UINT* in1, UINT* in2, int width, int height)
+cl_int COpenCL::RunAddNoizeKernel(BYTE* in1, BYTE* in2, int width, int height)
 {
 	try
 	{
 		int n = width * height;
-		std::size_t datasize = n * sizeof(UINT);
+		std::size_t datasize = n * sizeof(BYTE);
 		Buffer bIn1(*ctx, CL_MEM_READ_ONLY, datasize);
 		Buffer bIn2(*ctx, CL_MEM_WRITE_ONLY, datasize);
 
