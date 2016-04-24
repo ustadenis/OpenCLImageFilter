@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "COpenCL.h"
+#include <time.h>
 
 using namespace std;
 using namespace cl;
@@ -74,19 +75,14 @@ cl_int COpenCL::RunFilterKernel(BYTE* in1, BYTE* in2, int width, int height, int
 	{
 		int n = width * height;
 		std::size_t datasize = n * sizeof(BYTE);
-		std::size_t tmpsize = edge * edge * sizeof(BYTE);
 		Buffer bIn1(*ctx, CL_MEM_READ_ONLY, datasize);
 		Buffer bIn2(*ctx, CL_MEM_WRITE_ONLY, datasize);
-		Buffer bTmp(*ctx, CL_MEM_READ_ONLY, tmpsize);
 
 		queue->enqueueWriteBuffer(bIn1, CL_TRUE, 0, datasize, in1);
 
 		int arg = 0;
 		kernel->setArg(arg++, bIn1);
 		kernel->setArg(arg++, bIn2);
-		kernel->setArg(arg++, bTmp);
-		kernel->setArg(arg++, width);
-		kernel->setArg(arg++, height);
 		kernel->setArg(arg++, edge);
 
 		queue->enqueueNDRangeKernel(*kernel, NullRange, NDRange(width, height), NullRange);
@@ -109,24 +105,43 @@ cl_int COpenCL::RunAddNoizeKernel(BYTE* in1, BYTE* in2, int noizeLevel, int widt
 	{
 		int n = width * height;
 		std::size_t datasize = n * sizeof(BYTE);
-		Buffer bIn1(*ctx, CL_MEM_READ_ONLY, datasize);
-		Buffer bIn2(*ctx, CL_MEM_WRITE_ONLY, datasize);
+		Buffer bIn1(*ctx, CL_MEM_READ_WRITE, datasize);
+		Buffer bIn2(*ctx, CL_MEM_READ_ONLY, datasize);
+
+		BYTE* noize = new BYTE[datasize];
+		for(int i = 0; i < datasize; i++)
+		{
+			noize[i] = 0;
+		}
+
+		srand(time(0));
+		for(int i = 0; i < height; i++)
+		{
+			for(int j = 0; j < width * noizeLevel / 100; j++)
+			{
+				int index = rand() % width;
+				
+				for(int k = index - 2; k < index + 2; k++)
+				{
+					if(k > 0 && k < width)
+						noize[i * width + k] = 255;
+				}
+			}
+		}
 
 		queue->enqueueWriteBuffer(bIn1, CL_TRUE, 0, datasize, in1);
+		queue->enqueueWriteBuffer(bIn2, CL_TRUE, 0, datasize, noize);
 
-		int arg = 0, counter = 0;
+		int arg = 0;
 		kernel->setArg(arg++, bIn1);
 		kernel->setArg(arg++, bIn2);
-		kernel->setArg(arg++, counter);
 		kernel->setArg(arg++, noizeLevel);
-		kernel->setArg(arg++, width);
-		kernel->setArg(arg++, height);
 
 		queue->enqueueNDRangeKernel(*kernel, NullRange, NDRange(width, height), NullRange);
 		queue->finish();
 		MessageBox(NULL, L"Done", L"Success", MB_OK); 
 
-		queue->enqueueReadBuffer(bIn2, CL_TRUE, 0, n, in2);
+		queue->enqueueReadBuffer(bIn1, CL_TRUE, 0, n, in2);
 	} 
 	catch(exception e)
 	{

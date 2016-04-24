@@ -56,7 +56,7 @@ COpenCLImageFilterDlg::COpenCLImageFilterDlg(CWnd* pParent /*=NULL*/)
 	, m_sFindDir(_T(""))
 	, m_sOpenCLStatus(_T("Not Init"))
 	, m_nEdge(2)
-	, m_nNoizeLevel(20)
+	, m_nNoizeLevel(2)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -336,7 +336,7 @@ void COpenCLImageFilterDlg::OnBnClickedButton3()
 		{ /* Error */ }
 
 		Gdiplus::BitmapData* bitmapDataNoize = new Gdiplus::BitmapData();
-		m_BmpNoize->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, bitmapDataNoize);
+		m_BmpNoize->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppARGB, bitmapDataNoize);
 
 		
 		int stride = bitmapDataNoize->Stride;
@@ -354,7 +354,7 @@ void COpenCLImageFilterDlg::OnBnClickedButton3()
 
 		m_BmpNoize->UnlockBits(bitmapDataNoize);
  
-		m_BmpOut = reinterpret_cast<Gdiplus::Bitmap*>(Gdiplus::Bitmap::Bitmap(width, height, stride, PixelFormat32bppRGB, (BYTE*)out).Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppRGB));
+		m_BmpOut = reinterpret_cast<Gdiplus::Bitmap*>(Gdiplus::Bitmap::Bitmap(width, height, stride, PixelFormat32bppARGB, (BYTE*)out).Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppARGB));
 
 		mImageFiltered.SetImage(m_BmpOut);
 	} else {
@@ -416,7 +416,7 @@ void COpenCLImageFilterDlg::OnBnClickedButton6()
 		{ /* Error */ }
 
 		Gdiplus::BitmapData* bitmapDataIn = new Gdiplus::BitmapData();
-		m_BmpIn->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, bitmapDataIn);
+		m_BmpIn->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppARGB, bitmapDataIn);
 
 		
 		int stride = bitmapDataIn->Stride;
@@ -434,7 +434,7 @@ void COpenCLImageFilterDlg::OnBnClickedButton6()
 
 		m_BmpIn->UnlockBits(bitmapDataIn);
  
-		m_BmpNoize = reinterpret_cast<Gdiplus::Bitmap*>(Gdiplus::Bitmap::Bitmap(width, height, stride, PixelFormat32bppRGB, (BYTE*)out).Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppRGB));
+		m_BmpNoize = reinterpret_cast<Gdiplus::Bitmap*>(Gdiplus::Bitmap::Bitmap(width, height, stride, PixelFormat32bppARGB, (BYTE*)out).Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppARGB));
 
 		mImageNoize.SetImage(m_BmpNoize);
 
