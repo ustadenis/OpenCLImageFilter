@@ -350,7 +350,7 @@ void COpenCLImageFilterDlg::OnBnClickedButton3()
 			out[i] = 0;
 		}
 
-		m_OpenCL->RunFilterKernel(in, out, stride, height, m_nEdge);
+		m_OpenCL->RunFilterKernel(in, out, width, height, stride, m_nEdge);
 
 		m_BmpNoize->UnlockBits(bitmapDataNoize);
  
@@ -430,7 +430,7 @@ void COpenCLImageFilterDlg::OnBnClickedButton6()
 			out[i] = 0;
 		}
 
-		m_OpenCL->RunAddNoizeKernel(in, out, m_nNoizeLevel, stride, height);
+		m_OpenCL->RunAddNoizeKernel(in, out, m_nNoizeLevel, width, height, stride);
 
 		m_BmpIn->UnlockBits(bitmapDataIn);
  
