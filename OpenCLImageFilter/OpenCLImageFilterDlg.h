@@ -34,48 +34,60 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 
+	/**
+	 * Поток инициализации OpenCL
+	 */
 	static void InitOpenCL(PVOID* param);
+	/**
+	 * Поток для получения платформ
+	 */
 	static void GetPlatformsThread(PVOID* param);
+	/**
+	 * Поток для получения устройств
+	 */
 	static void GetDevicesThread(PVOID* param);
 
-public:
-	CImageWnd mImage;
-	afx_msg void OnBnClickedButton1();
-	afx_msg void OnBnClickedButton2();
-
 private:
-	CString m_sFindDir;
-	CButton m_InitButton;
 
-	bool m_bIsOpenCLInit;
-	bool m_bIsPlatformsReady;
-	bool m_bIsDevicesReady;
+	bool m_bIsOpenCLInit; // Флаг готовности OpenCL
+	bool m_bIsPlatformsReady; // Флаг готовности платформ
+	bool m_bIsDevicesReady; // Флаг готовности устройств
 
-	Gdiplus::Bitmap *m_BmpIn;
-	Gdiplus::Bitmap *m_BmpNoize;
-	Gdiplus::Bitmap *m_BmpOut;
+	Gdiplus::Bitmap *m_BmpIn; // Входное изображение
+	Gdiplus::Bitmap *m_BmpNoize; // Зашумленное изображение
+	Gdiplus::Bitmap *m_BmpOut; // Изображение после фильтра
 
-	VECTOR_CLASS<Platform> platforms;
-	VECTOR_CLASS<Device> devices;
+	VECTOR_CLASS<Platform> platforms; // Вектор платформ
+	VECTOR_CLASS<Device> devices; // Вектор устройств
+
 public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
-	CString m_sOpenCLStatus;
-	CImageWnd mImageFiltered;
-	afx_msg void OnBnClickedButton3();
+	afx_msg void OnBnClickedGetplatformsbutton();
+	afx_msg void OnCbnSelchangePlatformscombo();
+	afx_msg void OnBnClickedGetdevicesbutton();
+	afx_msg void OnCbnSelchangeDevicescombo();
+	afx_msg void OnBnClickedInitbutton();
+	afx_msg void OnBnClickedAddnoisebutton();
+	afx_msg void OnBnClickedStartbutton();
+	afx_msg void OnBnClickedBrowsebutton();
 
-	COpenCL* m_OpenCL;
-	afx_msg void OnBnClickedButton4();
-	CButton m_GetPLatformsButton;
-	CButton m_GetDevicesButton;
-	afx_msg void OnBnClickedButton5();
-	CButton m_StartButton;
-	int m_nEdge;
-	CComboBox m_PlatformsListBox;
-	afx_msg void OnCbnSelchangeCombo1();
-	CComboBox m_GetDevicesListBox;
-	afx_msg void OnCbnSelchangeCombo2();
-	CImageWnd mImageNoize;
-	CButton m_NoizeButton;
-	afx_msg void OnBnClickedButton6();
-	int m_nNoizeLevel;
+	COpenCL* m_OpenCL; // Объект для работы с OpenCL
+
+	int m_nEdge; // Глубина фильтрации
+	int m_nNoizeLevel; // Уровень шума
+
+	CString m_sOpenCLStatus; // Индикатор готовности OpenCL
+	CString m_sFindDir; // Путь к файлу изображения
+
+	CImageWnd mImage; // Отрисовка исходного изображения
+	CImageWnd mImageNoize; // Отрисовка зашумленного изображения
+	CImageWnd mImageFiltered; // Отрисовка отфильтрованного изображения
+
+	CButton m_GetPLatformsButton; // Кнопка получения платформ
+	CButton m_GetDevicesButton; // Кнопка получения устройств и инициализации OpenCL
+	CButton m_StartButton; // Кнопка начала фильтрации 
+	CButton m_NoizeButton; // Кнопка начала зашумления
+
+	CComboBox m_PlatformsListBox; // Комбо платформ
+	CComboBox m_GetDevicesListBox; // Комбо устройств
 };
