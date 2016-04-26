@@ -91,31 +91,98 @@ public:
 class COpenCL
 {
 public:
+	/**
+	 * Конструктор по умолчанию
+	 */
 	COpenCL();
+
+	/**
+	 * Деструктор по умолчанию
+	 */
 	~COpenCL();
+	
+	/**
+	 * Получить платформы
+	 *
+	 * @return вектор платформ
+	 */
 	VECTOR_CLASS<Platform> GetPlatforms();
+
+	/**
+	 * Получить устройства
+	 *
+	 * @return вектор устрйоств
+	 */
 	VECTOR_CLASS<Device> GetDevices();
+
+	/**
+	 * Создать контекст и очередь
+	 *
+	 * @return код ошибки
+	 */
 	cl_int CreateContext();
+
+	/**
+	 * Загрузить код и скомпилировать программу
+	 *
+	 * @param name - имя функции
+	 * @param code - код
+	 *
+	 * @return код ошибки
+	 */
 	cl_int LoadKernel(char* name, char* code);
-	cl_int RunFilterKernel(BYTE* m1, BYTE* m2, int width, int height, int stride, int edge);
-	cl_int RunAddNoizeKernel(BYTE* m1, BYTE* m2, int noizeLevel, int width, int height, int stride);
+
+	/**
+	 * Запустить фильтрацию
+	 *
+	 * @param in - неотфильтрованное изображение
+	 * @param out - отфильтрованное изображение
+	 * @param width - ширина изображение
+	 * @param height - высота изображение
+	 * @param edge - глубина фильтрации
+	 *
+	 * @return код ошибки
+	 */
+	cl_int RunFilterKernel(UINT* in, UINT* out, int width, int height, int edge);
+
+	/**
+	 * Запустить добавление шума на изображение
+	 *
+	 * @param in - входное изображение
+	 * @param out - зашумленное изображение
+	 * @param noiseLevel - уровень желаемого шума
+	 * @param width - ширина изображение
+	 * @param height - высота изображение
+	 *
+	 * @return код ошибки
+	 */
+	cl_int RunAddNoizeKernel(UINT* in, UINT* out, int noiseLevel, int width, int height);
+
+	/**
+	 * Выбрать платформу
+	 *
+	 * @param num - номер платформы
+	 */
 	void SetSelectedPlatform(int num);
+
+	/**
+	 * Выбрать устройство
+	 *
+	 * @param num - номер устройства
+	 */
 	void SetSelectedDevice(int num);
 
-private:
-	void GetDevicesInfo();
-
 public:
-	static const int MAX_SOURCE_SIZE = 1024;
+	static const int MAX_SOURCE_SIZE = 1024; // Максимальный размер входного кода
 
 private:
-	VECTOR_CLASS<Platform> platforms;
-	VECTOR_CLASS<Device> devices;
-	Context* ctx;
-	CommandQueue* queue;
-	Program* program;
-	Kernel* kernel;
+	VECTOR_CLASS<Platform> platforms; // Вектор платформ
+	VECTOR_CLASS<Device> devices; // Вектор устройств
+	Context* ctx; // Контекст
+	CommandQueue* queue; // Очередь
+	Program* program; // Программа
+	Kernel* kernel; // Ядро
 
-	int m_nSelectedPlatform;
-	int m_nSelectedDevice;
+	int m_nSelectedPlatform; // Индекс выбранной платформы
+	int m_nSelectedDevice; // Индекс выбранного устройства
 };

@@ -1,43 +1,36 @@
+/**
+ * Ядро фильтрации окном
+ *
+ * @param in - зашумленное изображение
+ * @param out - отфильтрованное изображение
+ * @param edge - глубина фильтрации
+ */
 __kernel void Filter(
-	__global __read_only unsigned char *in1,
-	__global __write_only unsigned char *in2,
-	__global __read_only unsigned char *tmp,
-	int stride,
+	__global __read_only unsigned int *in,
+	__global __write_only unsigned int *out,
 	int edge)
 {
-	const int x = get_global_id(0);
-	const int y = get_global_id(1);
-	const int width = get_global_size(0);
-	const int height = get_global_size(1);
+	const int x = get_global_id(0); // Получаем индекс в 0 измерение
+	const int y = get_global_id(1); // Получаем индекс в 1 измерение
+	const int width = get_global_size(0); // Получаем размерность 0 измерения
+	const int height = get_global_size(1); // Получаем размерность 1 измерения
 
-	//if ((x >= width) || (y >= height)) return;
+	if ((x >= width) || (y >= height)) return; // Проверяем что индексы не вышли за диаппазон
 
-	in1 = in1 + stride * y;
-	in2 = in2 + stride * y;
-
-	//in2[x * 4] = 255; //blue
-    //in2[x * 4 + 1] = 50; //green
-    //in2[x * 4 + 2] = 20; //red
-    //in2[x * 4 + 3] = 150; //alpha
-
-	int size = stride * height;
+	unsigned int tmp[1000]; // Создадим массив для сортировкифильтрующего окна
 	
+	// Берем окно размером edge x edge
 	for(int l = 0; l < edge; l++)
 	{
 		for(int r = 0; r < edge; r++)
 		{
-			if((x + r) * 4 < size && (x + r) * 4 > 0)
-			{
-				tmp[l * edge + r] = (in1 + stride * l)[(x + r) * 4];
-			}
-			else
-			{
-				tmp[l * edge + r] = (in1 + stride * l)[x * 4];
-			}
+			if(x + r < width && l + y < height)
+				tmp[l * edge + r] = in[(width * (y + l)) + (x + r)];
 		}
 	}
 
-	unsigned char p;
+	// Сортируем пиксели (пока пузырек, лень переписывать, время уже час доходит)
+	unsigned int p;
     for(int k = 0; k < edge * edge; k++)
 	{            
         for(int s = edge * edge - 1; s > k; s--)
@@ -51,88 +44,27 @@ __kernel void Filter(
         }
     }
 
-	in2[x * 4] = tmp[(edge * edge - 1) / 2];
-
-	for(int l = 0; l < edge; l++)
-	{
-		for(int r = 0; r < edge; r++)
-		{
-			if((x + r) * 4 + 1 < size && (x + r) * 4 + 1 > 0)
-			{
-				tmp[l * edge + r] = (in1 + stride * l)[(x + r) * 4 + 1];
-			}
-			else
-			{
-				tmp[l * edge + r] = (in1 + stride * l)[x * 4 + 1];
-			}
-		}
-	}
-
-    for(int k = 0; k < edge * edge; k++)
-	{            
-        for(int s = edge * edge - 1; s > k; s--)
-		{     
-            if(tmp[s - 1] > tmp[s])
-			{
-                p = tmp[s - 1];
-                tmp[s - 1] = tmp[s];
-                tmp[s] = p;
-            }
-        }
-    }
-
-	in2[x * 4 + 1] = tmp[(edge * edge - 1) / 2];
-
-	for(int l = 0; l < edge; l++)
-	{
-		for(int r = 0; r < edge; r++)
-		{
-			if((x + r) * 4 + 2 < size && (x + r) * 4 + 2 > 0)
-			{
-				tmp[l * edge + r] = (in1 + stride * l)[(x + r) * 4 + 2];
-			}
-			else
-			{
-				tmp[l * edge + r] = (in1 + stride * l)[x * 4 + 2];
-			}
-		}
-	}
-
-    for(int k = 0; k < edge * edge; k++)
-	{            
-        for(int s = edge * edge - 1; s > k; s--)
-		{     
-            if(tmp[s - 1] > tmp[s])
-			{
-                p = tmp[s - 1];
-                tmp[s - 1] = tmp[s];
-                tmp[s] = p;
-            }
-        }
-    }
-
-	in2[x * 4 + 2] = tmp[(edge * edge - 1) / 2];
-	in2[x * 4 + 3] = in1[x * 4 + 3];
+	// Записываем в пиксель медиану (центральный пиксель)
+	out[width * y + x] = tmp[(edge * edge - 1) / 2];
 }
 
+/**
+ * Ядро фильтрации окном
+ *
+ * @param in - зашумленное изображение
+ * @param noize - маска шума
+ */
 __kernel void AddNoize(
-	__global __read_write unsigned char *in1,
-	__global __read_only unsigned char *noize,
-	int stride,
-	int noizeLevel)
+	__global __read_write unsigned int *in,
+	__global __read_only unsigned int *noize)
 {
-	const int x = get_global_id(0);
-	const int y = get_global_id(1);
-	const int width = get_global_size(0);
-	const int height = get_global_size(1);
+	const int x = get_global_id(0); // Получаем индекс в 0 измерение
+	const int y = get_global_id(1); // Получаем индекс в 1 измерение
+	const int width = get_global_size(0); // Получаем размерность 0 измерения
 
-	in1 = in1 + stride * y;
-
-	if(noize[y * width + x] > 0)
+	// Накладываем маску шума на изображение
+	if(noize[width * y + x] > 0)
 	{
-		in1[x * 4] = 255;
-		in1[x * 4 + 1] = 255;
-		in1[x * 4 + 2] = 255;
-		in1[x * 4 + 3] = 255;
+		in[width * y + x] = noize[width * y + x];
 	}
 }
