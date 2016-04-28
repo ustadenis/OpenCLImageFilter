@@ -66,7 +66,7 @@ public:
 	afx_msg void OnCbnSelchangePlatformscombo();
 	afx_msg void OnBnClickedGetdevicesbutton();
 	afx_msg void OnCbnSelchangeDevicescombo();
-	afx_msg void OnBnClickedInitbutton();
+//	afx_msg void OnBnClickedInitbutton();
 	afx_msg void OnBnClickedAddnoisebutton();
 	afx_msg void OnBnClickedStartbutton();
 	afx_msg void OnBnClickedBrowsebutton();
