@@ -16,9 +16,9 @@
 #define TIMER_ID_PLATFORMS_READY 1
 #define TIMER_ID_DEVICES_READY 2
 
-static void InitOpenCL(PVOID* param);
-static void GetPlatformsThread(PVOID* param);
-static void GetDevicesThread(PVOID* param);
+//static void InitOpenCL(PVOID* param);
+//static void GetPlatformsThread(PVOID* param);
+//static void GetDevicesThread(PVOID* param);
 
 // Диалоговое окно CAboutDlg используется для описания сведений о приложении
 
@@ -90,7 +90,7 @@ BEGIN_MESSAGE_MAP(COpenCLImageFilterDlg, CDialogEx)
 	ON_WM_TIMER()
 	ON_BN_CLICKED(IDC_GETPLATFORMSBUTTON, &COpenCLImageFilterDlg::OnBnClickedGetplatformsbutton)
 	ON_CBN_SELCHANGE(IDC_PLATFORMSCOMBO, &COpenCLImageFilterDlg::OnCbnSelchangePlatformscombo)
-	ON_BN_CLICKED(IDC_GETDEVICESBUTTON, &COpenCLImageFilterDlg::OnBnClickedGetdevicesbutton)
+	//ON_BN_CLICKED(IDC_GETDEVICESBUTTON, &COpenCLImageFilterDlg::OnBnClickedGetdevicesbutton)
 	ON_CBN_SELCHANGE(IDC_DEVICESCOMBO, &COpenCLImageFilterDlg::OnCbnSelchangeDevicescombo)
 	ON_BN_CLICKED(IDC_ADDNOISEBUTTON, &COpenCLImageFilterDlg::OnBnClickedAddnoisebutton)
 	ON_BN_CLICKED(IDC_STARTBUTTON, &COpenCLImageFilterDlg::OnBnClickedStartbutton)
@@ -198,6 +198,7 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 		{
 			m_sOpenCLStatus = "Инициализировано"; // Изменяем статус на UI
 			m_NoizeButton.EnableWindow(true); // Включаем кнопку добавления шума
+			m_GetDevicesListBox.EnableWindow(); // Включаем кнопку выбора устройств
 			UpdateData(false);
 			KillTimer(nIDEvent);
 		}
@@ -207,10 +208,13 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 		if(m_bIsPlatformsReady)
 		{
 			// Чистим комбо бокс перед заполнением
-			for( int i = 0; i < m_PlatformsListBox.GetCount(); i++ )
-			{
-				m_PlatformsListBox.DeleteString(i);
-			}
+			//for( int i = 0; i < m_PlatformsListBox.GetCount(); i++ )
+			//{
+			//	m_PlatformsListBox.DeleteString(i);
+			//}
+
+			// так быстрее
+			m_PlatformsListBox.ResetContent();
 
 			// Заполняем комбо бокс
 			for_each(platforms.begin(), platforms.end(),
@@ -224,8 +228,18 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 				m_PlatformsListBox.AddString(str);
 			});
 	
-			m_PlatformsListBox.SetCurSel(0);
-			m_GetPLatformsButton.EnableWindow(false);
+			// выбирать можно, если есть из чего
+			if (m_PlatformsListBox.GetCount() > 0)
+			{
+				m_PlatformsListBox.SetCurSel(0);
+				
+				// включение списка и кнопки
+				m_GetPLatformsButton.EnableWindow();
+				m_PlatformsListBox.EnableWindow();
+
+				// имитация изменения выбора платформы
+				OnCbnSelchangePlatformscombo();
+			}
 
 			UpdateData(false);
 			KillTimer(nIDEvent);
@@ -236,10 +250,11 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 		if(m_bIsDevicesReady)
 		{
 			// Чистим комбо бокс перед заполнением
-			for( int i = 0; i < m_GetDevicesListBox.GetCount(); i++ )
-			{
-				m_GetDevicesListBox.DeleteString(i);
-			}
+			//for( int i = 0; i < m_GetDevicesListBox.GetCount(); i++ )
+			//{
+			//	m_GetDevicesListBox.DeleteString(i);
+			//}
+			m_GetDevicesListBox.ResetContent();
 
 			// Заполняем комбо бокс
 			for_each(devices.begin(), devices.end(),
@@ -253,8 +268,17 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 				m_GetDevicesListBox.AddString(str);
 			});
 	
-			m_GetDevicesListBox.SetCurSel(0);
-			m_GetDevicesButton.EnableWindow(false);
+			if (m_GetDevicesListBox.GetCount() > 0)
+			{
+				m_GetDevicesListBox.SetCurSel(0);
+				
+				// включение списков
+				m_PlatformsListBox.EnableWindow();
+				m_GetDevicesListBox.EnableWindow();
+
+				// имитация выбора устройства
+				OnCbnSelchangeDevicescombo();
+			}
 
 			UpdateData(false);
 			KillTimer(nIDEvent);
@@ -267,38 +291,42 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 
 void COpenCLImageFilterDlg::OnBnClickedGetplatformsbutton()
 {
-	// TODO: добавьте свой код обработчика уведомлений
 	// Запускаем поток получения платформ
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)GetPlatformsThread, this, NULL, NULL);
-	m_GetPLatformsButton.EnableWindow(false); // Выключаем кнопку 
+
+	m_GetPLatformsButton.EnableWindow(FALSE); // Выключаем кнопку 
+	m_PlatformsListBox.EnableWindow(FALSE); // Выключаем список выбора платформ
+	m_GetDevicesListBox.EnableWindow(FALSE); // включаем список выбора девайса
+
 	SetTimer(TIMER_ID_PLATFORMS_READY, 500, NULL); // Запускаем таймер
 }
 
 
 void COpenCLImageFilterDlg::OnCbnSelchangePlatformscombo()
 {
-	// TODO: добавьте свой код обработчика уведомлений
 	m_OpenCL->SetSelectedPlatform(m_PlatformsListBox.GetCurSel()); // Выбираем платформу
-	m_PlatformsListBox.EnableWindow(false); // Выключаем кнопку выбора платформ
-	m_GetDevicesButton.EnableWindow(true); // включаем кнопку выбора девайса
+	
+	m_PlatformsListBox.EnableWindow(FALSE); // Выключаем список выбора платформ
+	m_GetDevicesListBox.EnableWindow(FALSE); // включаем список выбора девайса
+
+	// определение устройств
+	OnBnClickedGetdevicesbutton();
 }
 
 
 void COpenCLImageFilterDlg::OnBnClickedGetdevicesbutton()
 {
-	// TODO: добавьте свой код обработчика уведомлений
 	// Запускаем поток получения девайсов
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)GetDevicesThread, this, NULL, NULL);
-	m_GetDevicesButton.EnableWindow(false); // Выключаем кнопку 
 	SetTimer(TIMER_ID_DEVICES_READY, 500, NULL); // Запускаем таймер
 }
 
 
 void COpenCLImageFilterDlg::OnCbnSelchangeDevicescombo()
 {
-	// TODO: добавьте свой код обработчика уведомлений
 	m_OpenCL->SetSelectedDevice(m_GetDevicesListBox.GetCurSel()); // Выбираем устройство
-	m_GetDevicesListBox.EnableWindow(false); // Выключаем кнопку выбора устройств
+	m_GetDevicesListBox.EnableWindow(FALSE); // Выключаем список выбора устройств
+	
 	// Запускаем поток инициализации OpenCL
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)InitOpenCL, this, NULL, NULL);
 	SetTimer(TIMER_ID_OPENCL_INIT, 500, NULL); // Запускаем таймер
@@ -322,7 +350,10 @@ void COpenCLImageFilterDlg::OnBnClickedAddnoisebutton()
 
 		// Загружаем и компилируем kernel
 		if(m_OpenCL->LoadKernel("AddNoize", code) != 0)
-		{ /* Error */ }
+		{
+			/* Error */
+			return;
+		}
 
 		// Декодим изображение
 		Gdiplus::BitmapData* bitmapDataIn = new Gdiplus::BitmapData();
@@ -373,7 +404,10 @@ void COpenCLImageFilterDlg::OnBnClickedStartbutton()
 
 		// Загружаем и компилируем kernel
 		if(m_OpenCL->LoadKernel("Filter", code) != 0)
-		{ /* Error */ }
+		{
+			/* Error */
+			return;
+		}
 
 		// Декодим изображение
 		Gdiplus::BitmapData* bitmapDataNoize = new Gdiplus::BitmapData();

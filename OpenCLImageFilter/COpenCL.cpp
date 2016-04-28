@@ -50,8 +50,8 @@ cl_int COpenCL::CreateContext()
 	if(devices.size() > 0)
 	{
 		Device &dev = devices[m_nSelectedDevice];
-		ctx = new Context(dev); // Создание контекста для выбранного устройства
-		queue = new CommandQueue(*ctx, dev); // Создание очереди
+		ctx = Context(dev); // Создание контекста для выбранного устройства
+		queue = CommandQueue(ctx, dev); // Создание очереди
 		return 0;
 	}
 
@@ -60,13 +60,41 @@ cl_int COpenCL::CreateContext()
 
 cl_int COpenCL::LoadKernel(char* name, char* code)
 {
-	/* создать бинарник из кода программы */
-	program = new Program(*ctx, code); // Создание программы
-	program->build(); // Компиляция программы
+	try
+	{
+		/* создать бинарник из кода программы */
+		program = Program(ctx, code); // Создание программы
+		program.build(); // Компиляция программы
 
-	kernel = new Kernel(*program, name); // Создание ядра
+		kernel = Kernel(program, name); // Создание ядра
 
-	return 0;
+		return CL_SUCCESS;
+	}
+	catch (Error &e)
+	{
+		// протокол сборки программы
+		STRING_CLASS log;
+		
+		switch (e.err())
+		{
+		case CL_BUILD_PROGRAM_FAILURE:
+		
+			// получение протокола сборки
+			program.getBuildInfo(devices[m_nSelectedDevice], CL_PROGRAM_BUILD_LOG, &log);
+
+			log = "\n\n" + log;
+			log = e.what() + log;
+
+			MessageBoxA(NULL, log.c_str(), "Ошибка создания ядра", MB_ICONERROR);
+			break;
+		
+		default:
+			MessageBoxA(NULL, e.what(), "Ошибка создания ядра", MB_ICONERROR);
+			break;
+		}
+
+		return e.err();
+	}
 }
 
 cl_int COpenCL::RunAddNoizeKernel(UINT* in, UINT* out, int noizeLevel, int width, int height)
@@ -75,8 +103,8 @@ cl_int COpenCL::RunAddNoizeKernel(UINT* in, UINT* out, int noizeLevel, int width
 	{
 		int pixelcount = width * height; // Количество пикселей
 		std::size_t datasize = pixelcount * sizeof(UINT); // Размер буффера
-		Buffer bIn(*ctx, CL_MEM_READ_WRITE, datasize); // Выделяем буффер для изображения
-		Buffer bNoise(*ctx, CL_MEM_READ_ONLY, datasize); // Выделяем буффер для маски шума
+		Buffer bIn(ctx, CL_MEM_READ_WRITE, datasize); // Выделяем буффер для изображения
+		Buffer bNoise(ctx, CL_MEM_READ_ONLY, datasize); // Выделяем буффер для маски шума
 
 		UINT* noize = new UINT[pixelcount]; // Создаем и обнуляем маску шума
 		for(int i = 0; i < pixelcount; i++)
@@ -85,7 +113,7 @@ cl_int COpenCL::RunAddNoizeKernel(UINT* in, UINT* out, int noizeLevel, int width
 		}
 
 		// Заполняем маску шума
-		srand(time(0));
+		srand((UINT)time(0));
 		for(int i = 0; i < height; i++)
 		{
 			for(int j = 0; j < width * noizeLevel / 100; j++)
@@ -101,22 +129,22 @@ cl_int COpenCL::RunAddNoizeKernel(UINT* in, UINT* out, int noizeLevel, int width
 			}
 		}
 
-		queue->enqueueWriteBuffer(bIn, CL_TRUE, 0, datasize, in); // Записываем изображение в буффер
-		queue->enqueueWriteBuffer(bNoise, CL_TRUE, 0, datasize, noize); // Записываем маску шума в буффер
+		queue.enqueueWriteBuffer(bIn, CL_TRUE, 0, datasize, in); // Записываем изображение в буффер
+		queue.enqueueWriteBuffer(bNoise, CL_TRUE, 0, datasize, noize); // Записываем маску шума в буффер
 
 		// Записываем буфферы в ядро
 		int arg = 0;
-		kernel->setArg(arg++, bIn);
-		kernel->setArg(arg++, bNoise);
+		kernel.setArg(arg++, bIn);
+		kernel.setArg(arg++, bNoise);
 
 		// Добавляем ядро в очередь и ждем конца выполнения
-		queue->enqueueNDRangeKernel(*kernel, NullRange, NDRange(width, height), NullRange);
-		queue->finish();
+		queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height), NullRange);
+		queue.finish();
 		// Выводим сообщение об успешном выполнение
-		MessageBox(NULL, L"Done", L"Success", MB_OK); 
+		//MessageBox(NULL, L"Done", L"Success", MB_OK); 
 
 		// Вычитываем получившееся изображение
-		queue->enqueueReadBuffer(bIn, CL_TRUE, 0, datasize, out);
+		queue.enqueueReadBuffer(bIn, CL_TRUE, 0, datasize, out);
 	} 
 	catch(exception e)
 	{
@@ -134,25 +162,25 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 		int imagesize = width * height; // Кол-во пикселей
 		std::size_t datasize = imagesize * sizeof(UINT); // Размер беффера с изображением
 
-		Buffer bIn(*ctx, CL_MEM_READ_ONLY, datasize); // Создаем буффер для изображения
-		Buffer bOut(*ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буффер для отфильтрованного изображения
+		Buffer bIn(ctx, CL_MEM_READ_ONLY, datasize); // Создаем буффер для изображения
+		Buffer bOut(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буффер для отфильтрованного изображения
 
-		queue->enqueueWriteBuffer(bIn, CL_TRUE, 0, datasize, in); // Записываем изображение в буффер
+		queue.enqueueWriteBuffer(bIn, CL_TRUE, 0, datasize, in); // Записываем изображение в буффер
 
 		// Записываем буфферы в ядро
 		int arg = 0;
-		kernel->setArg(arg++, bIn);
-		kernel->setArg(arg++, bOut);
-		kernel->setArg(arg++, edge);
+		kernel.setArg(arg++, bIn);
+		kernel.setArg(arg++, bOut);
+		kernel.setArg(arg++, edge);
 
 		// Добавляем ядро в очередь и ждем конца выполнения
-		queue->enqueueNDRangeKernel(*kernel, NullRange, NDRange(width, height), NullRange);
-		queue->finish();
+		queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height), NullRange);
+		queue.finish();
 		// Выводим сообщение об успешном выполнение
-		MessageBox(NULL, L"Done", L"Success", MB_OK); 
+		//MessageBox(NULL, L"Done", L"Success", MB_OK); 
 
 		// Вычитываем получившееся изображение
-		queue->enqueueReadBuffer(bOut, CL_TRUE, 0, datasize, out);
+		queue.enqueueReadBuffer(bOut, CL_TRUE, 0, datasize, out);
 	} 
 	catch(exception e)
 	{

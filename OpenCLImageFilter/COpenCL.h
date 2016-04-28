@@ -178,10 +178,11 @@ public:
 private:
 	VECTOR_CLASS<Platform> platforms; // Вектор платформ
 	VECTOR_CLASS<Device> devices; // Вектор устройств
-	Context* ctx; // Контекст
-	CommandQueue* queue; // Очередь
-	Program* program; // Программа
-	Kernel* kernel; // Ядро
+	
+	Context ctx; // Контекст
+	CommandQueue queue; // Очередь
+	Program program; // Программа
+	Kernel kernel; // Ядро
 
 	int m_nSelectedPlatform; // Индекс выбранной платформы
 	int m_nSelectedDevice; // Индекс выбранного устройства
