@@ -97,64 +97,6 @@ cl_int COpenCL::LoadKernel(char* name, char* code)
 	}
 }
 
-cl_int COpenCL::RunAddNoizeKernel(UINT* in, UINT* out, int noizeLevel, int width, int height)
-{
-	try
-	{
-		int pixelcount = width * height; // Количество пикселей
-		std::size_t datasize = pixelcount * sizeof(UINT); // Размер буффера
-		Buffer bIn(ctx, CL_MEM_READ_WRITE, datasize); // Выделяем буффер для изображения
-		Buffer bNoise(ctx, CL_MEM_READ_ONLY, datasize); // Выделяем буффер для маски шума
-
-		UINT* noize = new UINT[pixelcount]; // Создаем и обнуляем маску шума
-		for(int i = 0; i < pixelcount; i++)
-		{
-			noize[i] = 0;
-		}
-
-		// Заполняем маску шума
-		srand((UINT)time(0));
-		for(int i = 0; i < height; i++)
-		{
-			for(int j = 0; j < width * noizeLevel / 100; j++)
-			{
-				int index = rand() % width;
-				
-				for(int k = index - 2; k < index + 2; k++)
-				{
-					int offset = rand() % 16;
-					if(k > 0 && k < width)
-						noize[i * width + k] = 0xFF000000 | (0xFF << offset);
-				}
-			}
-		}
-
-		queue.enqueueWriteBuffer(bIn, CL_TRUE, 0, datasize, in); // Записываем изображение в буффер
-		queue.enqueueWriteBuffer(bNoise, CL_TRUE, 0, datasize, noize); // Записываем маску шума в буффер
-
-		// Записываем буфферы в ядро
-		int arg = 0;
-		kernel.setArg(arg++, bIn);
-		kernel.setArg(arg++, bNoise);
-
-		// Добавляем ядро в очередь и ждем конца выполнения
-		queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height), NullRange);
-		queue.finish();
-		// Выводим сообщение об успешном выполнение
-		//MessageBox(NULL, L"Done", L"Success", MB_OK); 
-
-		// Вычитываем получившееся изображение
-		queue.enqueueReadBuffer(bIn, CL_TRUE, 0, datasize, out);
-	} 
-	catch(exception e)
-	{
-		// Выводим сообщение об ошибке если что-то пошло не так
-		MessageBox(NULL, (wchar_t*)e.what(), L"ERROR", MB_OK); 
-	}
-
-	return 0;
-}
-
 cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int edge)
 {
 	try
@@ -177,7 +119,7 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 		queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height), NullRange);
 		queue.finish();
 		// Выводим сообщение об успешном выполнение
-		//MessageBox(NULL, L"Done", L"Success", MB_OK); 
+		MessageBox(NULL, L"Done", L"Success", MB_OK); 
 
 		// Вычитываем получившееся изображение
 		queue.enqueueReadBuffer(bOut, CL_TRUE, 0, datasize, out);

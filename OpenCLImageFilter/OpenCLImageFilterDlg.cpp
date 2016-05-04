@@ -90,7 +90,6 @@ BEGIN_MESSAGE_MAP(COpenCLImageFilterDlg, CDialogEx)
 	ON_WM_TIMER()
 	ON_BN_CLICKED(IDC_GETPLATFORMSBUTTON, &COpenCLImageFilterDlg::OnBnClickedGetplatformsbutton)
 	ON_CBN_SELCHANGE(IDC_PLATFORMSCOMBO, &COpenCLImageFilterDlg::OnCbnSelchangePlatformscombo)
-	//ON_BN_CLICKED(IDC_GETDEVICESBUTTON, &COpenCLImageFilterDlg::OnBnClickedGetdevicesbutton)
 	ON_CBN_SELCHANGE(IDC_DEVICESCOMBO, &COpenCLImageFilterDlg::OnCbnSelchangeDevicescombo)
 	ON_BN_CLICKED(IDC_ADDNOISEBUTTON, &COpenCLImageFilterDlg::OnBnClickedAddnoisebutton)
 	ON_BN_CLICKED(IDC_STARTBUTTON, &COpenCLImageFilterDlg::OnBnClickedStartbutton)
@@ -197,7 +196,6 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 		if(m_bIsOpenCLInit)
 		{
 			m_sOpenCLStatus = "Инициализировано"; // Изменяем статус на UI
-			m_NoizeButton.EnableWindow(true); // Включаем кнопку добавления шума
 			m_GetDevicesListBox.EnableWindow(); // Включаем кнопку выбора устройств
 			UpdateData(false);
 			KillTimer(nIDEvent);
@@ -208,12 +206,6 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 		if(m_bIsPlatformsReady)
 		{
 			// Чистим комбо бокс перед заполнением
-			//for( int i = 0; i < m_PlatformsListBox.GetCount(); i++ )
-			//{
-			//	m_PlatformsListBox.DeleteString(i);
-			//}
-
-			// так быстрее
 			m_PlatformsListBox.ResetContent();
 
 			// Заполняем комбо бокс
@@ -250,10 +242,6 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 		if(m_bIsDevicesReady)
 		{
 			// Чистим комбо бокс перед заполнением
-			//for( int i = 0; i < m_GetDevicesListBox.GetCount(); i++ )
-			//{
-			//	m_GetDevicesListBox.DeleteString(i);
-			//}
 			m_GetDevicesListBox.ResetContent();
 
 			// Заполняем комбо бокс
@@ -336,24 +324,12 @@ void COpenCLImageFilterDlg::OnCbnSelchangeDevicescombo()
 void COpenCLImageFilterDlg::OnBnClickedAddnoisebutton()
 {
 	// TODO: добавьте свой код обработчика уведомлений
-	if(m_OpenCL != NULL && m_bIsOpenCLInit && m_BmpIn != NULL)
+	if(m_BmpIn != NULL)
 	{
 		UpdateData(true);
-		// Получаеем код OpenCL
-		HMODULE hModule = ::GetModuleHandle(nullptr);
-		HRSRC hRes = ::FindResource(hModule, MAKEINTRESOURCE(IDR_KERNEL1), L"KERNEL");
-		HGLOBAL res = ::LoadResource(hModule, hRes);
-		char *code = (char *)::LockResource(res);
 		// получаем высоту и ширину изображения
 		int width = m_BmpIn->GetWidth();
 		int height = m_BmpIn->GetHeight();
-
-		// Загружаем и компилируем kernel
-		if(m_OpenCL->LoadKernel("AddNoize", code) != 0)
-		{
-			/* Error */
-			return;
-		}
 
 		// Декодим изображение
 		Gdiplus::BitmapData* bitmapDataIn = new Gdiplus::BitmapData();
@@ -367,11 +343,11 @@ void COpenCLImageFilterDlg::OnBnClickedAddnoisebutton()
 
 		for(int i = 0; i < n; i++)
 		{
-			out[i] = 0;
+			out[i] = in[i];
 		}
 
-		// Запускаем krenel
-		m_OpenCL->RunAddNoizeKernel(in, out, m_nNoizeLevel, width, height);
+		// Зашумляем изображение
+		AddNoise(out, width, height);
 
 		m_BmpIn->UnlockBits(bitmapDataIn);
  
@@ -383,6 +359,29 @@ void COpenCLImageFilterDlg::OnBnClickedAddnoisebutton()
 		m_StartButton.EnableWindow(true);
 	} else {
 		/* Not Init */
+	}
+}
+
+void COpenCLImageFilterDlg::AddNoise(unsigned int* image, int width, int height)
+{
+	int pixelcount = width * height; // Количество пикселей
+	UpdateData(true);
+
+	// Заполняем маску шума
+	srand((UINT)time(0));
+	for (int i = 0; i < height; i++)
+	{
+		for (int j = 0; j < width * m_nNoizeLevel / 100; j++)
+		{
+			int index = rand() % width;
+
+			for (int k = index - 2; k < index + 2; k++)
+			{
+				int offset = rand() % 16;
+				if (k > 0 && k < width)
+					image[i * width + k] = 0xFF000000 | (0xFF << offset);
+			}
+		}
 	}
 }
 
@@ -456,6 +455,7 @@ void COpenCLImageFilterDlg::OnBnClickedBrowsebutton()
 		Gdiplus::Image jpg(m_sFindDir);
 		m_BmpIn = reinterpret_cast<Gdiplus::Bitmap*>(jpg.Clone()); // Получаем изображение
 		mImage.SetImage(m_BmpIn); // Показываем изображение на экране
+		m_NoizeButton.EnableWindow(true);
 	}
 }
 
