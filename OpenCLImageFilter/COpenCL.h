@@ -120,7 +120,7 @@ public:
 	 *
 	 * @return код ошибки
 	 */
-	cl_int CreateContext();
+	cl_int CreateContext(bool useAllDevices);
 
 	/**
 	 * Загрузить код и скомпилировать программу

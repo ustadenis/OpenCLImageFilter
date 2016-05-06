@@ -45,12 +45,19 @@ VECTOR_CLASS<Device> COpenCL::GetDevices()
 	return devices;
 }
 
-cl_int COpenCL::CreateContext()
+cl_int COpenCL::CreateContext(bool useAllDevices)
 {
 	if(devices.size() > 0)
 	{
 		Device &dev = devices[m_nSelectedDevice];
-		ctx = Context(dev); // —оздание контекста дл€ выбранного устройства
+		if(!useAllDevices)
+		{
+			ctx = Context(dev); // —оздание контекста дл€ выбранного устройства
+		}
+		else
+		{
+			ctx = Context(devices);
+		}
 		queue = CommandQueue(ctx, dev); // —оздание очереди
 		return 0;
 	}
@@ -118,8 +125,6 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 		// ƒобавл€ем €дро в очередь и ждем конца выполнени€
 		queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height), NullRange);
 		queue.finish();
-		// ¬ыводим сообщение об успешном выполнение
-		MessageBox(NULL, L"Done", L"Success", MB_OK); 
 
 		// ¬ычитываем получившеес€ изображение
 		queue.enqueueReadBuffer(bOut, CL_TRUE, 0, datasize, out);
