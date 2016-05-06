@@ -75,7 +75,7 @@ public:
 	afx_msg void OnBnClickedStartbutton();
 	afx_msg void OnBnClickedBrowsebutton();
 
-	COpenCL* m_OpenCL; // Объект для работы с OpenCL
+	COpenCL m_OpenCL; // Объект для работы с OpenCL
 
 	int m_nEdge; // Глубина фильтрации
 	int m_nNoizeLevel; // Уровень шума

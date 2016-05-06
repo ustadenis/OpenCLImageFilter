@@ -102,12 +102,12 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 	try
 	{
 		int imagesize = width * height; // Кол-во пикселей
-		std::size_t datasize = imagesize * sizeof(UINT); // Размер беффера с изображением
+		std::size_t datasize = imagesize * sizeof(UINT); // Размер бефера с изображением
 
-		Buffer bIn(ctx, CL_MEM_READ_ONLY, datasize); // Создаем буффер для изображения
-		Buffer bOut(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буффер для отфильтрованного изображения
+		Buffer bIn(ctx, CL_MEM_READ_ONLY, datasize); // Создаем буфер для изображения
+		Buffer bOut(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буфер для отфильтрованного изображения
 
-		queue.enqueueWriteBuffer(bIn, CL_TRUE, 0, datasize, in); // Записываем изображение в буффер
+		queue.enqueueWriteBuffer(bIn, CL_TRUE, 0, datasize, in); // Записываем изображение в буфер
 
 		// Записываем буфферы в ядро
 		int arg = 0;
@@ -124,11 +124,12 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 		// Вычитываем получившееся изображение
 		queue.enqueueReadBuffer(bOut, CL_TRUE, 0, datasize, out);
 	} 
-	catch(exception e)
+	catch(Error &e)
 	{
 		// Выводим сообщение об ошибке если что-то пошло не так
-		MessageBox(NULL, (wchar_t*)e.what(), L"ERROR", MB_OK); 
+		MessageBoxA(NULL, e.what(), "Ошибка исполнения ядра", MB_OK);
+		return e.err();
 	}
 
-	return 0;
+	return CL_SUCCESS;
 }

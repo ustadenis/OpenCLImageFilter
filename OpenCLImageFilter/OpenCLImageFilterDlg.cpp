@@ -16,10 +16,6 @@
 #define TIMER_ID_PLATFORMS_READY 1
 #define TIMER_ID_DEVICES_READY 2
 
-//static void InitOpenCL(PVOID* param);
-//static void GetPlatformsThread(PVOID* param);
-//static void GetDevicesThread(PVOID* param);
-
 // Диалоговое окно CAboutDlg используется для описания сведений о приложении
 
 class CAboutDlg : public CDialogEx
@@ -59,8 +55,11 @@ COpenCLImageFilterDlg::COpenCLImageFilterDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(COpenCLImageFilterDlg::IDD, pParent)
 	, m_sFindDir(_T(""))
 	, m_sOpenCLStatus(_T("Не инициализировано"))
-	, m_nEdge(5)
+	, m_nEdge(3)
 	, m_nNoizeLevel(2)
+	, m_BmpIn(nullptr)
+	, m_BmpNoize(nullptr)
+	, m_BmpOut(nullptr)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -129,7 +128,7 @@ BOOL COpenCLImageFilterDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Мелкий значок
 
 	// TODO: добавьте дополнительную инициализацию
-	m_OpenCL = new COpenCL();
+	//m_OpenCL = new COpenCL();
 
 	m_bIsOpenCLInit = false;
 	m_bIsPlatformsReady = false;
@@ -292,7 +291,7 @@ void COpenCLImageFilterDlg::OnBnClickedGetplatformsbutton()
 
 void COpenCLImageFilterDlg::OnCbnSelchangePlatformscombo()
 {
-	m_OpenCL->SetSelectedPlatform(m_PlatformsListBox.GetCurSel()); // Выбираем платформу
+	m_OpenCL.SetSelectedPlatform(m_PlatformsListBox.GetCurSel()); // Выбираем платформу
 	
 	m_PlatformsListBox.EnableWindow(FALSE); // Выключаем список выбора платформ
 	m_GetDevicesListBox.EnableWindow(FALSE); // включаем список выбора девайса
@@ -312,7 +311,7 @@ void COpenCLImageFilterDlg::OnBnClickedGetdevicesbutton()
 
 void COpenCLImageFilterDlg::OnCbnSelchangeDevicescombo()
 {
-	m_OpenCL->SetSelectedDevice(m_GetDevicesListBox.GetCurSel()); // Выбираем устройство
+	m_OpenCL.SetSelectedDevice(m_GetDevicesListBox.GetCurSel()); // Выбираем устройство
 	m_GetDevicesListBox.EnableWindow(FALSE); // Выключаем список выбора устройств
 	
 	// Запускаем поток инициализации OpenCL
@@ -326,37 +325,48 @@ void COpenCLImageFilterDlg::OnBnClickedAddnoisebutton()
 	// TODO: добавьте свой код обработчика уведомлений
 	if(m_BmpIn != NULL)
 	{
-		UpdateData(true);
+		UpdateData();
+
 		// получаем высоту и ширину изображения
 		int width = m_BmpIn->GetWidth();
 		int height = m_BmpIn->GetHeight();
 
+		// изначально зашумленное изображение совпадает с исходным
+		m_BmpNoize = m_BmpIn->Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppARGB);
+
 		// Декодим изображение
-		Gdiplus::BitmapData* bitmapDataIn = new Gdiplus::BitmapData();
-		m_BmpIn->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppARGB, bitmapDataIn);
-		
-		int stride = bitmapDataIn->Stride; // Получаем страйд
+		Gdiplus::BitmapData bitmapDataIn;
+		Gdiplus::BitmapData bitmapDataOut;
+
+		m_BmpIn->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bitmapDataIn);
+		m_BmpNoize->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppARGB, &bitmapDataOut);
+
+		int stride = bitmapDataIn.Stride; // Получаем страйд
 		int n = width * height; // Количество пикселей
 
-		UINT* in = (UINT*)bitmapDataIn->Scan0;
-		UINT* out = new UINT[n];
+		UINT* in = (UINT*)bitmapDataIn.Scan0;
+		UINT* out = (UINT*)bitmapDataOut.Scan0;
 
-		for(int i = 0; i < n; i++)
-		{
-			out[i] = in[i];
-		}
+		//for(int i = 0; i < n; i++)
+		//{
+		//	out[i] = in[i];
+		//}
 
 		// Зашумляем изображение
 		AddNoise(out, width, height);
 
-		m_BmpIn->UnlockBits(bitmapDataIn);
- 
+		// сохранение изменений
+		m_BmpIn->UnlockBits(&bitmapDataIn);
+		m_BmpNoize->UnlockBits(&bitmapDataOut);
+
 		// Кодируем байты обратно в изображение
-		m_BmpNoize = reinterpret_cast<Gdiplus::Bitmap*>(Gdiplus::Bitmap::Bitmap(width, height, stride, PixelFormat32bppARGB, (BYTE*)out).Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppARGB));
+		//m_BmpNoize = reinterpret_cast<Gdiplus::Bitmap*>(Gdiplus::Bitmap::Bitmap(width, height, stride, PixelFormat32bppARGB, (BYTE*)out).Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppARGB));
+	
 		// Показываем изображение на экране
 		mImageNoize.SetImage(m_BmpNoize);
+	
 		// Включаем кнопку фильтрации
-		m_StartButton.EnableWindow(true);
+		m_StartButton.EnableWindow();
 	} else {
 		/* Not Init */
 	}
@@ -389,7 +399,7 @@ void COpenCLImageFilterDlg::AddNoise(unsigned int* image, int width, int height)
 void COpenCLImageFilterDlg::OnBnClickedStartbutton()
 {
 	// TODO: добавьте свой код обработчика уведомлений
-	if(m_OpenCL != NULL && m_bIsOpenCLInit && m_BmpNoize != NULL)
+	if(/*m_OpenCL != NULL &&*/ m_bIsOpenCLInit && m_BmpNoize != NULL)
 	{
 		UpdateData(true);
 		// Получаеем код OpenCL
@@ -402,7 +412,7 @@ void COpenCLImageFilterDlg::OnBnClickedStartbutton()
 		int height = m_BmpNoize->GetHeight();
 
 		// Загружаем и компилируем kernel
-		if(m_OpenCL->LoadKernel("Filter", code) != 0)
+		if(m_OpenCL.LoadKernel("Filter", code) != 0)
 		{
 			/* Error */
 			return;
@@ -425,7 +435,7 @@ void COpenCLImageFilterDlg::OnBnClickedStartbutton()
 		}
 
 		// Запускаем krenel
-		m_OpenCL->RunFilterKernel(in, out, width, height, m_nEdge);
+		m_OpenCL.RunFilterKernel(in, out, width, height, m_nEdge);
 
 		m_BmpNoize->UnlockBits(bitmapDataNoize);
 
@@ -450,12 +460,12 @@ void COpenCLImageFilterDlg::OnBnClickedBrowsebutton()
 
 	if(!m_sFindDir.IsEmpty())
 	{
+		m_BmpIn = Gdiplus::Bitmap::FromFile(m_sFindDir); // Получаем изображение
+		
 		mImage.Clear();
-
-		Gdiplus::Image jpg(m_sFindDir);
-		m_BmpIn = reinterpret_cast<Gdiplus::Bitmap*>(jpg.Clone()); // Получаем изображение
 		mImage.SetImage(m_BmpIn); // Показываем изображение на экране
-		m_NoizeButton.EnableWindow(true);
+
+		m_NoizeButton.EnableWindow();
 	}
 }
 
@@ -463,7 +473,7 @@ void COpenCLImageFilterDlg::InitOpenCL(PVOID* param) // Поток инициализации Open
 {
 	COpenCLImageFilterDlg* dlg = (COpenCLImageFilterDlg*)param;
 
-	if(dlg->m_OpenCL->CreateContext() != 0)
+	if(dlg->m_OpenCL.CreateContext() != 0)
 	{
 		dlg->MessageBox(L"CreateContext::Error");
 		return;
@@ -477,7 +487,7 @@ void COpenCLImageFilterDlg::GetPlatformsThread(PVOID* param) // Поток получаения
 {
 	COpenCLImageFilterDlg* dlg = (COpenCLImageFilterDlg*)param;
 
-	dlg->platforms = dlg->m_OpenCL->GetPlatforms();
+	dlg->platforms = dlg->m_OpenCL.GetPlatforms();
 
 	dlg->m_bIsPlatformsReady = true; // Выставляем флаг готовности
 }
@@ -487,7 +497,7 @@ void COpenCLImageFilterDlg::GetDevicesThread(PVOID* param) // Поток получаения у
 {
 	COpenCLImageFilterDlg* dlg = (COpenCLImageFilterDlg*)param;
 
-	dlg->devices = dlg->m_OpenCL->GetDevices();
+	dlg->devices = dlg->m_OpenCL.GetDevices();
 
 	dlg->m_bIsDevicesReady = true; // Выставляем флаг готовности
 }
