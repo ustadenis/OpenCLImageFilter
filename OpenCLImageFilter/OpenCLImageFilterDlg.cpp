@@ -399,7 +399,7 @@ void COpenCLImageFilterDlg::AddNoise(unsigned int* image, int width, int height)
 	{
 		int x = rand() % width;
 		int y = rand() % height;
-		int offset = rand() % 16;
+		int offset = rand() % 24;
 		image[y * width + x] = 0xFF000000 | (0xFF << offset);
 	}
 }
@@ -410,8 +410,11 @@ void COpenCLImageFilterDlg::OnBnClickedStartbutton()
 	UpdateData(TRUE);
 	mTimeStart = mTimer.Now();
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartFilter, this, NULL, NULL);
-	SetTimer(TIMER_ID_IMAGE_FILTER, 100, NULL); // Запускаем таймер
-	m_StartButton.EnableWindow(FALSE);
+	if(m_bIsOpenCLInit)
+	{
+		SetTimer(TIMER_ID_IMAGE_FILTER, 100, NULL); // Запускаем таймер
+		m_StartButton.EnableWindow(FALSE);
+	}
 }
 
 
