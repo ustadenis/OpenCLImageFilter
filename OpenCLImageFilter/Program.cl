@@ -67,15 +67,17 @@ __kernel void Filter(
 	unsigned int tmp[1000]; // Создадим массив для фильтрующего окна
 	unsigned char colorTmp[1000]; // Массив для цветов
 	int tmpSize = edge * edge;
-	unsigned int pixel = in[width * y + x] & 0xFF000000;
+	unsigned int pixel = 0x000000;
 
 	// Берем окно размером edge x edge
-	for(int l = 0; l < edge; l++)
+	for(int l = -edge/2; l < edge/2; l++)
 	{
-		for(int r = 0; r < edge; r++)
+		for(int r = -edge/2; r < edge/2; r++)
 		{
-			if(x + r < width && l + y < height)
-				tmp[l * edge + r] = in[(width * (y + l)) + (x + r)];
+			if((x + r < width && x + r > 0) && (l + y < height && y + l > 0))
+				tmp[(l + edge/2) * edge + (r + edge/2)] = in[(width * (y + l)) + (x + r)];
+			else
+				tmp[(l + edge/2) * edge + (r + edge/2)] = in[width * y + x];
 		}
 	}
 	

@@ -46,17 +46,30 @@ protected:
 	 * Поток для получения устройств
 	 */
 	static void GetDevicesThread(PVOID* param);
+	/**
+	 * Поток для выполнения фильтрации
+	 */
+	static void StartFilter(PVOID* param);
 
 	/**
 	 * Зашумление ищображения
 	 */
 	void AddNoise(unsigned int* image, int width, int height);
 
+	/**
+	 * Получение устройств
+	 */
+	void GetDevices();
+
 private:
 
 	bool m_bIsOpenCLInit; // Флаг готовности OpenCL
 	bool m_bIsPlatformsReady; // Флаг готовности платформ
 	bool m_bIsDevicesReady; // Флаг готовности устройств
+	bool m_bIsImageFiltered; // Флаг готовности устройств
+
+	double mTimeStart;
+	Timer mTimer;
 
 	Gdiplus::Bitmap *m_BmpIn; // Входное изображение
 	Gdiplus::Bitmap *m_BmpNoize; // Зашумленное изображение
@@ -69,7 +82,6 @@ public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnBnClickedGetplatformsbutton();
 	afx_msg void OnCbnSelchangePlatformscombo();
-	afx_msg void OnBnClickedGetdevicesbutton();
 	afx_msg void OnCbnSelchangeDevicescombo();
 	afx_msg void OnBnClickedAddnoisebutton();
 	afx_msg void OnBnClickedStartbutton();
@@ -88,10 +100,13 @@ public:
 	CImageWnd mImageFiltered; // Отрисовка отфильтрованного изображения
 
 	CButton m_GetPLatformsButton; // Кнопка получения платформ
-	CButton m_GetDevicesButton; // Кнопка получения устройств и инициализации OpenCL
 	CButton m_StartButton; // Кнопка начала фильтрации 
 	CButton m_NoizeButton; // Кнопка начала зашумления
 
 	CComboBox m_PlatformsListBox; // Комбо платформ
 	CComboBox m_GetDevicesListBox; // Комбо устройств
+	double m_nTime;
+	afx_msg void OnBnClickedUsealldevicescheck();
+	BOOL m_bUseAllDevices;
+	CButton m_UseAllDevicesButton;
 };
