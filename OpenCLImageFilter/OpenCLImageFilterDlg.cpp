@@ -56,7 +56,7 @@ COpenCLImageFilterDlg::COpenCLImageFilterDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(COpenCLImageFilterDlg::IDD, pParent)
 	, m_sFindDir(_T(""))
 	, m_sOpenCLStatus(_T("Не инициализировано"))
-	, m_nEdge(3)
+	, m_nEdge(4)
 	, m_nNoizeLevel(15)
 	, m_BmpIn(nullptr)
 	, m_BmpNoize(nullptr)
@@ -84,6 +84,7 @@ void COpenCLImageFilterDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_DEVICESCOMBO, m_GetDevicesListBox);
 	DDX_Text(pDX, IDC_TIME, m_nTime);
 	DDX_Check(pDX, IDC_USEALLDEVICESCHECK, m_bUseAllDevices);
+	DDX_Control(pDX, IDC_USEALLDEVICESCHECK, m_UseAllDevicesButton);
 }
 
 BEGIN_MESSAGE_MAP(COpenCLImageFilterDlg, CDialogEx)
@@ -276,6 +277,8 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 					OnCbnSelchangeDevicescombo();
 				}
 
+				m_UseAllDevicesButton.EnableWindow(TRUE);
+
 				UpdateData(false);
 				KillTimer(nIDEvent);
 			}
@@ -283,15 +286,15 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 		}
 		case TIMER_ID_IMAGE_FILTER:
 		{
-			m_nTime = mTimer.Now() - mTimeStart;
 			if(m_bIsImageFiltered)
 			{
 				mImageFiltered.SetImage(m_BmpOut);
 				m_bIsImageFiltered = false;
 				m_StartButton.EnableWindow(TRUE);
+				m_nTime = mTimer.Now() - mTimeStart;
+				UpdateData(FALSE);
 				KillTimer(TIMER_ID_IMAGE_FILTER);
 			}
-			UpdateData(FALSE);
 			break;
 		}
 		default:
@@ -356,14 +359,14 @@ void COpenCLImageFilterDlg::OnBnClickedAddnoisebutton()
 		int height = m_BmpIn->GetHeight();
 
 		// изначально зашумленное изображение совпадает с исходным
-		m_BmpNoize = m_BmpIn->Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppARGB);
+		m_BmpNoize = m_BmpIn->Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppRGB);
 
 		// Декодим изображение
 		Gdiplus::BitmapData bitmapDataIn;
 		Gdiplus::BitmapData bitmapDataOut;
 
-		m_BmpIn->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bitmapDataIn);
-		m_BmpNoize->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppARGB, &bitmapDataOut);
+		m_BmpIn->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapDataIn);
+		m_BmpNoize->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, &bitmapDataOut);
 
 		int stride = bitmapDataIn.Stride; // Получаем страйд
 		int n = width * height; // Количество пикселей
@@ -400,7 +403,8 @@ void COpenCLImageFilterDlg::AddNoise(unsigned int* image, int width, int height)
 		int x = rand() % width;
 		int y = rand() % height;
 		int offset = rand() % 24;
-		image[y * width + x] = 0xFF000000 | (0xFF << offset);
+		int intensity = rand() % 0xFF;
+		image[y * width + x] = (intensity << offset);
 	}
 }
 
@@ -408,7 +412,6 @@ void COpenCLImageFilterDlg::AddNoise(unsigned int* image, int width, int height)
 void COpenCLImageFilterDlg::OnBnClickedStartbutton()
 {
 	UpdateData(TRUE);
-	mTimeStart = mTimer.Now();
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartFilter, this, NULL, NULL);
 	if(m_bIsOpenCLInit)
 	{
@@ -494,14 +497,14 @@ void COpenCLImageFilterDlg::StartFilter(PVOID* param)
 			return;
 		}
 
-		dlg->m_BmpOut = dlg->m_BmpNoize->Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppARGB);
+		dlg->m_BmpOut = dlg->m_BmpNoize->Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppRGB);
 
 		// Декодим изображение
 		Gdiplus::BitmapData bitmapDataNoise;
 		Gdiplus::BitmapData bitmapDataOut;
 
-		dlg->m_BmpNoize->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bitmapDataNoise);
-		dlg->m_BmpOut->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppARGB, &bitmapDataOut);
+		dlg->m_BmpNoize->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapDataNoise);
+		dlg->m_BmpOut->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, &bitmapDataOut);
 
 		
 		int stride = bitmapDataNoise.Stride;
@@ -510,8 +513,12 @@ void COpenCLImageFilterDlg::StartFilter(PVOID* param)
 		UINT* in = (UINT*)bitmapDataNoise.Scan0;
 		UINT* out = (UINT*)bitmapDataOut.Scan0;
 
+		dlg->mTimeStart = dlg->mTimer.Now();
+		int edge = dlg->m_nEdge;
+		if(edge % 2 != 0)
+			edge += 1;
 		// Запускаем krenel
-		dlg->m_OpenCL.RunFilterKernel(in, out, width, height, dlg->m_nEdge);
+		dlg->m_OpenCL.RunFilterKernel(in, out, width, height, edge);
 
 		dlg->m_BmpNoize->UnlockBits(&bitmapDataNoise);
 		dlg->m_BmpOut->UnlockBits(&bitmapDataOut);
@@ -534,4 +541,8 @@ void COpenCLImageFilterDlg::OnBnClickedUsealldevicescheck()
 	{
 		m_GetDevicesListBox.EnableWindow(TRUE);
 	}
+	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)InitOpenCL, this, NULL, NULL);
+	SetTimer(TIMER_ID_OPENCL_INIT, 500, NULL); // Запускаем таймер
+	m_sOpenCLStatus = "Не инициализировано"; // Изменяем статус на UI
+	UpdateData(FALSE);
 }

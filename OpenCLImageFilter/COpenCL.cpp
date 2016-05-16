@@ -9,6 +9,7 @@ COpenCL::COpenCL() // Конструктор
 {
 	m_nSelectedPlatform = 0;
 	m_nSelectedDevice = 0;
+	m_bUseAllDevices = false;
 }
 
 COpenCL::~COpenCL() // Деструктор
@@ -47,18 +48,31 @@ VECTOR_CLASS<Device> COpenCL::GetDevices()
 
 cl_int COpenCL::CreateContext(bool useAllDevices)
 {
+	m_bUseAllDevices = useAllDevices;
 	if(devices.size() > 0)
 	{
-		Device &dev = devices[m_nSelectedDevice];
-		if(!useAllDevices)
+		if(!m_bUseAllDevices)
 		{
+			Device &dev = devices[m_nSelectedDevice];
 			ctx = Context(dev); // Создание контекста для выбранного устройства
+			queue = CommandQueue(ctx, dev); // Создание очереди
 		}
 		else
 		{
 			ctx = Context(devices);
+			if(devices.size() > 1)
+			{
+				Device &dev1 = devices[0];
+				queue = CommandQueue(ctx, dev1); // Создание первой очереди
+				Device &dev2 = devices[1];
+				second_queue = CommandQueue(ctx, dev2); // Создание второй очереди
+			}
+			else
+			{
+				Device &dev = devices[m_nSelectedDevice];
+				queue = CommandQueue(ctx, dev); // Создание очереди
+			}
 		}
-		queue = CommandQueue(ctx, dev); // Создание очереди
 		return 0;
 	}
 
@@ -108,26 +122,91 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 {
 	try
 	{
-		int imagesize = width * height; // Кол-во пикселей
-		std::size_t datasize = imagesize * sizeof(UINT); // Размер бефера с изображением
+		if(!m_bUseAllDevices || devices.size() == 1)
+		{
+			int imagesize = width * height; // Кол-во пикселей
+			std::size_t datasize = imagesize * sizeof(UINT); // Размер бефера с изображением
 
-		Buffer bIn(ctx, CL_MEM_READ_ONLY, datasize); // Создаем буфер для изображения
-		Buffer bOut(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буфер для отфильтрованного изображения
+			Buffer bIn(ctx, CL_MEM_READ_ONLY, datasize); // Создаем буфер для изображения
+			Buffer bOut(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буфер для отфильтрованного изображения
 
-		queue.enqueueWriteBuffer(bIn, CL_TRUE, 0, datasize, in); // Записываем изображение в буфер
+			queue.enqueueWriteBuffer(bIn, CL_TRUE, 0, datasize, in); // Записываем изображение в буфер
 
-		// Записываем буфферы в ядро
-		int arg = 0;
-		kernel.setArg(arg++, bIn);
-		kernel.setArg(arg++, bOut);
-		kernel.setArg(arg++, edge);
+			// Записываем буфферы в ядро
+			int arg = 0;
+			kernel.setArg(arg++, bIn);
+			kernel.setArg(arg++, bOut);
+			kernel.setArg(arg++, edge);
 
-		// Добавляем ядро в очередь и ждем конца выполнения
-		queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height), NullRange);
-		queue.finish();
+			// Добавляем ядро в очередь и ждем конца выполнения
+			queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height), NullRange);
+			queue.finish();
 
-		// Вычитываем получившееся изображение
-		queue.enqueueReadBuffer(bOut, CL_TRUE, 0, datasize, out);
+			// Вычитываем получившееся изображение
+			queue.enqueueReadBuffer(bOut, CL_TRUE, 0, datasize, out);
+		}
+		else
+		{
+			int imagesize = width * height / 2; // Кол-во пикселей
+			std::size_t datasize = imagesize * sizeof(UINT); // Размер бефера с изображением
+
+			Buffer bIn1(ctx, CL_MEM_READ_ONLY, datasize); // Создаем буфер для изображения
+			Buffer bIn2(ctx, CL_MEM_READ_ONLY, datasize); // Создаем буфер для изображения
+			Buffer bOut1(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буфер для отфильтрованного изображения
+			Buffer bOut2(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буфер для отфильтрованного изображения
+
+			UINT *in1 = new UINT[imagesize];
+			UINT *in2 = new UINT[imagesize];
+			for(int i = 0; i < 2 * imagesize; i++)
+			{
+				if(i < imagesize)
+					in1[i] = in[i];
+				if(i >= imagesize)
+					in2[i - imagesize] = in[i];
+			}
+			queue.enqueueWriteBuffer(bIn1, CL_TRUE, 0, datasize, in1); // Записываем изображение в буфер
+			second_queue.enqueueWriteBuffer(bIn2, CL_TRUE, 0, datasize, in2); // Записываем изображение в буфер
+
+			// Записываем буфферы в ядро
+			int arg = 0;
+			kernel.setArg(arg++, bIn1);
+			kernel.setArg(arg++, bOut1);
+			kernel.setArg(arg++, edge);
+
+			// Добавляем ядро в очередь и ждем конца выполнения
+			queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height / 2), NullRange);
+			queue.finish();
+
+			// Вычитываем получившееся изображение
+			queue.enqueueReadBuffer(bOut1, CL_TRUE, 0, datasize, in1);
+
+			for(int i = 0; i < imagesize; i++)
+			{
+				out[i] = in1[i];
+			}
+
+			delete [] in1;
+
+			// Записываем буфферы в ядро
+			arg = 0;
+			kernel.setArg(arg++, bIn2);
+			kernel.setArg(arg++, bOut2);
+			kernel.setArg(arg++, edge);
+
+			// Добавляем ядро в очередь и ждем конца выполнения
+			second_queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height / 2), NullRange);
+			second_queue.finish();
+
+			// Вычитываем получившееся изображение
+			queue.enqueueReadBuffer(bOut2, CL_TRUE, 0, datasize, in2);
+
+			for(int i = 0; i < imagesize; i++)
+			{
+				out[i + imagesize] = in2[i];
+			}
+
+			delete [] in2;
+		}
 	} 
 	catch(Error &e)
 	{

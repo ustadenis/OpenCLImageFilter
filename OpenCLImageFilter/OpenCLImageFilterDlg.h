@@ -108,4 +108,5 @@ public:
 	double m_nTime;
 	afx_msg void OnBnClickedUsealldevicescheck();
 	BOOL m_bUseAllDevices;
+	CButton m_UseAllDevicesButton;
 };

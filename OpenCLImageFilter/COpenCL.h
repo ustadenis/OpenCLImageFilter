@@ -181,8 +181,10 @@ private:
 	
 	Context ctx; // Контекст
 	CommandQueue queue; // Очередь
+	CommandQueue second_queue; // Очередь для второго девайса
 	Program program; // Программа
 	Kernel kernel; // Ядро
+	bool m_bUseAllDevices;
 
 	int m_nSelectedPlatform; // Индекс выбранной платформы
 	int m_nSelectedDevice; // Индекс выбранного устройства
