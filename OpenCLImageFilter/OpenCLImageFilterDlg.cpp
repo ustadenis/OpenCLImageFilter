@@ -263,6 +263,17 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 					CStringW str(pInfo.data());
 					m_GetDevicesListBox.AddString(str);
 				});
+
+				if(m_GetDevicesListBox.GetCount() > 1) 
+				{
+					m_UseAllDevicesButton.EnableWindow(TRUE);
+				}
+				else
+				{
+					m_UseAllDevicesButton.EnableWindow(FALSE);
+					m_bUseAllDevices = false;
+					UpdateData(false);
+				}
 	
 				if (m_GetDevicesListBox.GetCount() > 0)
 				{
@@ -276,8 +287,6 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 					// имитация выбора устройства
 					OnCbnSelchangeDevicescombo();
 				}
-
-				m_UseAllDevicesButton.EnableWindow(TRUE);
 
 				UpdateData(false);
 				KillTimer(nIDEvent);
