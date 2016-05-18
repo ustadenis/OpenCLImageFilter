@@ -18,31 +18,18 @@ void sort(unsigned char* tmp, int n)
 	unsigned char p;
 	for(int k = 0; k < n; k++)
 	{            
-        for(int s = n - 1; s > k; s--)
+		int minElIndex = k;
+        for(int s = k; s < n; s++)
 		{     
-            if(tmp[s - 1] > tmp[s])
+            if(tmp[minElIndex] > tmp[s])
 			{
-                p = tmp[s - 1];
-                tmp[s - 1] = tmp[s];
-                tmp[s] = p;
+				minElIndex = s;
             }
         }
+		p = tmp[k];
+        tmp[k] = tmp[minElIndex];
+        tmp[minElIndex] = p;
     }
-}
-
-/**
- *
- * Очистка массива
- *
- * @param указатель на массив
- * @param размер массива
- */
-void clear(unsigned char* tmp, int n)
-{
-	for(int i = 0; i < n; i++)
-	{
-		tmp[i] = 0;
-	}
 }
 
 /**
@@ -72,12 +59,28 @@ __kernel void Filter(
 	// Берем окно размером edge x edge
 	for(int l = -edge/2; l < edge/2; l++)
 	{
+		int line = l;
+		if(l + y >= height)
+		{
+			line = height - (l + y);
+		}
+		else if(y + l < 0)
+		{
+			line = -(y + l);
+		}
 		for(int r = -edge/2; r < edge/2; r++)
 		{
-			if((x + r < width && x + r > 0) && (l + y < height && y + l > 0))
-				tmp[(l + edge/2) * edge + (r + edge/2)] = in[(width * (y + l)) + (x + r)];
-			else
-				tmp[(l + edge/2) * edge + (r + edge/2)] = in[width * y + x];
+			int raw = r;
+			if(r + x >= width)
+			{
+				raw = width - (r + x);
+			}
+			else if(r + x < 0)
+			{
+				raw = -(r + x);
+			}
+
+			tmp[(l + edge/2) * edge + (r + edge/2)] = in[(width * (y + line)) + (x + raw)];
 		}
 	}
 	
@@ -91,8 +94,6 @@ __kernel void Filter(
 
 	pixel = pixel + OUTRED(colorTmp[(edge * edge - 1) / 2]);
 
-	clear(&colorTmp, tmpSize);
-
 	// Зеленый
 	for(int i = 0; i < tmpSize; i++)
 	{
@@ -103,8 +104,6 @@ __kernel void Filter(
 
 	pixel = pixel + OUTGREEN(colorTmp[(edge * edge - 1) / 2]);
 
-	clear(&colorTmp, tmpSize);
-
 	// Синий
 	for(int i = 0; i < tmpSize; i++)
 	{
@@ -114,8 +113,6 @@ __kernel void Filter(
     sort(&colorTmp, tmpSize);
 
 	pixel = pixel + OUTBLUE(colorTmp[(edge * edge - 1) / 2]);
-
-	clear(&colorTmp, tmpSize);
 
 	// Записываем в пиксель медиану (центральный пиксель)
 	out[width * y + x] = pixel;

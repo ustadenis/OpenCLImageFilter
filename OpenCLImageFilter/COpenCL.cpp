@@ -59,9 +59,9 @@ cl_int COpenCL::CreateContext(bool useAllDevices)
 		}
 		else
 		{
-			ctx = Context(devices);
 			if(devices.size() > 1)
 			{
+				ctx = Context(devices);
 				Device &dev1 = devices[0];
 				queue = CommandQueue(ctx, dev1); // Создание первой очереди
 				Device &dev2 = devices[1];
@@ -70,6 +70,7 @@ cl_int COpenCL::CreateContext(bool useAllDevices)
 			else
 			{
 				Device &dev = devices[m_nSelectedDevice];
+				ctx = Context(dev); // Создание контекста для выбранного устройства
 				queue = CommandQueue(ctx, dev); // Создание очереди
 			}
 		}
@@ -155,17 +156,8 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 			Buffer bOut1(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буфер для отфильтрованного изображения
 			Buffer bOut2(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буфер для отфильтрованного изображения
 
-			UINT *in1 = new UINT[imagesize];
-			UINT *in2 = new UINT[imagesize];
-			for(int i = 0; i < 2 * imagesize; i++)
-			{
-				if(i < imagesize)
-					in1[i] = in[i];
-				if(i >= imagesize)
-					in2[i - imagesize] = in[i];
-			}
-			queue.enqueueWriteBuffer(bIn1, CL_TRUE, 0, datasize, in1); // Записываем изображение в буфер
-			second_queue.enqueueWriteBuffer(bIn2, CL_TRUE, 0, datasize, in2); // Записываем изображение в буфер
+			queue.enqueueWriteBuffer(bIn1, CL_TRUE, 0, datasize, in); // Записываем изображение в буфер
+			second_queue.enqueueWriteBuffer(bIn2, CL_TRUE, 0, datasize, in + (width * height / 2)); // Записываем изображение в буфер
 
 			// Записываем буфферы в ядро
 			int arg = 0;
@@ -175,17 +167,6 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 
 			// Добавляем ядро в очередь и ждем конца выполнения
 			queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height / 2), NullRange);
-			queue.finish();
-
-			// Вычитываем получившееся изображение
-			queue.enqueueReadBuffer(bOut1, CL_TRUE, 0, datasize, in1);
-
-			for(int i = 0; i < imagesize; i++)
-			{
-				out[i] = in1[i];
-			}
-
-			delete [] in1;
 
 			// Записываем буфферы в ядро
 			arg = 0;
@@ -195,23 +176,20 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 
 			// Добавляем ядро в очередь и ждем конца выполнения
 			second_queue.enqueueNDRangeKernel(kernel, NullRange, NDRange(width, height / 2), NullRange);
+
+			queue.finish();
 			second_queue.finish();
 
 			// Вычитываем получившееся изображение
-			queue.enqueueReadBuffer(bOut2, CL_TRUE, 0, datasize, in2);
-
-			for(int i = 0; i < imagesize; i++)
-			{
-				out[i + imagesize] = in2[i];
-			}
-
-			delete [] in2;
+			queue.enqueueReadBuffer(bOut1, CL_TRUE, 0, datasize, out);
+			// Вычитываем получившееся изображение
+			queue.enqueueReadBuffer(bOut2, CL_TRUE, 0, datasize, out + (width * height / 2));
 		}
 	} 
 	catch(Error &e)
 	{
 		// Выводим сообщение об ошибке если что-то пошло не так
-		MessageBoxA(NULL, e.what(), "Ошибка исполнения ядра", MB_OK);
+		MessageBoxA(NULL, e.what(), "Ошибка исполнения ядра", MB_ICONERROR);
 		return e.err();
 	}
 
