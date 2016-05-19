@@ -100,7 +100,7 @@ cl_int COpenCL::LoadKernel(char* name, char* code)
 		switch (e.err())
 		{
 		case CL_BUILD_PROGRAM_FAILURE:
-		
+
 			// получение протокола сборки
 			program.getBuildInfo(devices[m_nSelectedDevice], CL_PROGRAM_BUILD_LOG, &log);
 
@@ -109,7 +109,7 @@ cl_int COpenCL::LoadKernel(char* name, char* code)
 
 			MessageBoxA(NULL, log.c_str(), "Ошибка создания ядра", MB_ICONERROR);
 			break;
-		
+
 		default:
 			MessageBoxA(NULL, e.what(), "Ошибка создания ядра", MB_ICONERROR);
 			break;
@@ -153,11 +153,12 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 
 			Buffer bIn1(ctx, CL_MEM_READ_ONLY, datasize); // Создаем буфер для изображения
 			Buffer bIn2(ctx, CL_MEM_READ_ONLY, datasize); // Создаем буфер для изображения
+		
 			Buffer bOut1(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буфер для отфильтрованного изображения
 			Buffer bOut2(ctx, CL_MEM_WRITE_ONLY, datasize); // Создаем буфер для отфильтрованного изображения
 
 			queue.enqueueWriteBuffer(bIn1, CL_TRUE, 0, datasize, in); // Записываем изображение в буфер
-			second_queue.enqueueWriteBuffer(bIn2, CL_TRUE, 0, datasize, in + (width * height / 2)); // Записываем изображение в буфер
+			second_queue.enqueueWriteBuffer(bIn2, CL_TRUE, 0, datasize, in + imagesize); // Записываем изображение в буфер
 
 			// Записываем буфферы в ядро
 			int arg = 0;
@@ -182,8 +183,9 @@ cl_int COpenCL::RunFilterKernel(UINT* in, UINT* out, int width, int height, int 
 
 			// Вычитываем получившееся изображение
 			queue.enqueueReadBuffer(bOut1, CL_TRUE, 0, datasize, out);
+
 			// Вычитываем получившееся изображение
-			queue.enqueueReadBuffer(bOut2, CL_TRUE, 0, datasize, out + (width * height / 2));
+			second_queue.enqueueReadBuffer(bOut2, CL_TRUE, 0, datasize, out + imagesize);
 		}
 	} 
 	catch(Error &e)

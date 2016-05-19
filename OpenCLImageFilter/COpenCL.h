@@ -146,19 +146,6 @@ public:
 	cl_int RunFilterKernel(UINT* in, UINT* out, int width, int height, int edge);
 
 	/**
-	 * «апустить добавление шума на изображение
-	 *
-	 * @param in - входное изображение
-	 * @param out - зашумленное изображение
-	 * @param noiseLevel - уровень желаемого шума
-	 * @param width - ширина изображение
-	 * @param height - высота изображение
-	 *
-	 * @return код ошибки
-	 */
-	cl_int RunAddNoizeKernel(UINT* in, UINT* out, int noiseLevel, int width, int height);
-
-	/**
 	 * ¬ыбрать платформу
 	 *
 	 * @param num - номер платформы

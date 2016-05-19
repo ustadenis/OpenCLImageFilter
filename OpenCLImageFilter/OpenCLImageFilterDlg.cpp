@@ -411,9 +411,7 @@ void COpenCLImageFilterDlg::AddNoise(unsigned int* image, int width, int height)
 	{
 		int x = rand() % width;
 		int y = rand() % height;
-		int offset = rand() % 24;
-		int intensity = rand() % 0xFF;
-		image[y * width + x] = (intensity << offset);
+		image[y * width + x] = RGB(rand() % 256, rand() % 256, rand() % 256);
 	}
 }
 
@@ -454,7 +452,7 @@ void COpenCLImageFilterDlg::InitOpenCL(PVOID* param) // Поток инициализации Open
 {
 	COpenCLImageFilterDlg* dlg = (COpenCLImageFilterDlg*)param;
 
-	if(dlg->m_OpenCL.CreateContext(dlg->m_bUseAllDevices) != 0)
+	if(dlg->m_OpenCL.CreateContext(dlg->m_bUseAllDevices != 0) != 0)
 	{
 		dlg->MessageBox(L"CreateContext::Error");
 		return;
@@ -495,6 +493,7 @@ void COpenCLImageFilterDlg::StartFilter(PVOID* param)
 		HRSRC hRes = ::FindResource(hModule, MAKEINTRESOURCE(IDR_KERNEL1), L"KERNEL");
 		HGLOBAL res = ::LoadResource(hModule, hRes);
 		char *code = (char *)::LockResource(res);
+		
 		// получаем высоту и ширину изображения
 		int width = dlg->m_BmpNoize->GetWidth();
 		int height = dlg->m_BmpNoize->GetHeight();
@@ -526,6 +525,7 @@ void COpenCLImageFilterDlg::StartFilter(PVOID* param)
 		int edge = dlg->m_nEdge;
 		if(edge % 2 != 0)
 			edge += 1;
+		
 		// Запускаем krenel
 		dlg->m_OpenCL.RunFilterKernel(in, out, width, height, edge);
 
