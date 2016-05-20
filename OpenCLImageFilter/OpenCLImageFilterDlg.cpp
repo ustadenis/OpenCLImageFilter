@@ -411,7 +411,7 @@ void COpenCLImageFilterDlg::AddNoise(unsigned int* image, int width, int height)
 	{
 		int x = rand() % width;
 		int y = rand() % height;
-		image[y * width + x] = RGB(rand() % 256, rand() % 256, rand() % 256);
+		image[y * width + x] = RGB(rand() % 255, rand() % 255, rand() % 255);
 	}
 }
 
