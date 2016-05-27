@@ -7,15 +7,25 @@
 #include "OpenCLImageFilterDlg.h"
 #include "afxdialogex.h"
 #include <algorithm>
+#include <math.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
+#define RED(x) ((x & 0x00FF0000) >> 16)
+#define GREEN(x) ((x & 0x0000FF00) >> 8)
+#define BLUE(x) ((x & 0x000000FF) >> 0)
+
+#define OUTRED(x) (x << 16)
+#define OUTGREEN(x) (x << 8)
+#define OUTBLUE(x) (x << 0)
+
 #define TIMER_ID_OPENCL_INIT 0
 #define TIMER_ID_PLATFORMS_READY 1
 #define TIMER_ID_DEVICES_READY 2
 #define TIMER_ID_IMAGE_FILTER 3
+#define TIMER_ID_IMAGE_FILTER_LA 4
 
 // Диалоговое окно CAboutDlg используется для описания сведений о приложении
 
@@ -63,6 +73,8 @@ COpenCLImageFilterDlg::COpenCLImageFilterDlg(CWnd* pParent /*=NULL*/)
 	, m_BmpOut(nullptr)
 	, m_nTime(0)
 	, m_bUseAllDevices(FALSE)
+	, m_sImageSize(_T(""))
+	, m_bLinearAlgorithm(FALSE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -85,6 +97,9 @@ void COpenCLImageFilterDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_TIME, m_nTime);
 	DDX_Check(pDX, IDC_USEALLDEVICESCHECK, m_bUseAllDevices);
 	DDX_Control(pDX, IDC_USEALLDEVICESCHECK, m_UseAllDevicesButton);
+	DDX_Text(pDX, IDC_IMAGESIZE, m_sImageSize);
+	DDX_Control(pDX, IDC_USEALLDEVICESCHECK2, m_LinearAlgorithm);
+	DDX_Check(pDX, IDC_USEALLDEVICESCHECK2, m_bLinearAlgorithm);
 }
 
 BEGIN_MESSAGE_MAP(COpenCLImageFilterDlg, CDialogEx)
@@ -139,6 +154,7 @@ BOOL COpenCLImageFilterDlg::OnInitDialog()
 	m_bIsPlatformsReady = false;
 	m_bIsDevicesReady = false;
 	m_bIsImageFiltered = false;
+	m_bIsImageFilteredLA = false;
 
 	return TRUE;  // возврат значения TRUE, если фокус не передан элементу управления
 }
@@ -300,9 +316,22 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 				mImageFiltered.SetImage(m_BmpOut);
 				m_bIsImageFiltered = false;
 				m_StartButton.EnableWindow(TRUE);
-				m_nTime = mTimer.Now() - mTimeStart;
+				m_nTime = floor((mTimer.Now() - mTimeStart) * 1000) / 1000.;
 				UpdateData(FALSE);
 				KillTimer(TIMER_ID_IMAGE_FILTER);
+			}
+			break;
+		}
+		case TIMER_ID_IMAGE_FILTER_LA:
+		{
+			if(m_bIsImageFilteredLA)
+			{
+				mImageFiltered.SetImage(m_BmpOut);
+				m_bIsImageFilteredLA = false;
+				m_StartButton.EnableWindow(TRUE);
+				m_nTime = floor((mTimer.Now() - mTimeStart) * 1000) / 1000.;
+				UpdateData(FALSE);
+				KillTimer(TIMER_ID_IMAGE_FILTER_LA);
 			}
 			break;
 		}
@@ -419,10 +448,19 @@ void COpenCLImageFilterDlg::AddNoise(unsigned int* image, int width, int height)
 void COpenCLImageFilterDlg::OnBnClickedStartbutton()
 {
 	UpdateData(TRUE);
-	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartFilter, this, NULL, NULL);
-	if(m_bIsOpenCLInit)
+	if(!m_bLinearAlgorithm)
 	{
-		SetTimer(TIMER_ID_IMAGE_FILTER, 100, NULL); // Запускаем таймер
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartFilter, this, NULL, NULL);
+		if(m_bIsOpenCLInit)
+		{
+			SetTimer(TIMER_ID_IMAGE_FILTER, 100, NULL); // Запускаем таймер
+			m_StartButton.EnableWindow(FALSE);
+		}
+	}
+	else
+	{
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartFilterLA, this, NULL, NULL);
+		SetTimer(TIMER_ID_IMAGE_FILTER_LA, 100, NULL); // Запускаем таймер
 		m_StartButton.EnableWindow(FALSE);
 	}
 }
@@ -435,7 +473,6 @@ void COpenCLImageFilterDlg::OnBnClickedBrowsebutton()
 	fileDlg.DoModal(); // Открываем диалог выбора изображения
 	UpdateData(true);
 	m_sFindDir = fileDlg.GetFolderPath() + "\\" + fileDlg.GetFileName(); // Путь до изображения
-	UpdateData(false);
 
 	if(!m_sFindDir.IsEmpty())
 	{
@@ -444,8 +481,22 @@ void COpenCLImageFilterDlg::OnBnClickedBrowsebutton()
 		mImage.Clear();
 		mImage.SetImage(m_BmpIn); // Показываем изображение на экране
 
+		int nWidth = m_BmpIn->GetWidth();
+		int nHeight = m_BmpIn->GetHeight();
+		char chWidth[5];
+		char chHeight[5];
+		_itoa(nWidth, chWidth, 10);
+		_itoa(nHeight, chHeight, 10);
+
+		m_sImageSize = chWidth;
+		m_sImageSize += "x";
+		m_sImageSize += chHeight;
+		m_sImageSize += " px";
+
 		m_NoizeButton.EnableWindow();
 	}
+
+	UpdateData(false);
 }
 
 void COpenCLImageFilterDlg::InitOpenCL(PVOID* param) // Поток инициализации OpenCL
@@ -485,7 +536,6 @@ void COpenCLImageFilterDlg::StartFilter(PVOID* param)
 {
 	COpenCLImageFilterDlg* dlg = (COpenCLImageFilterDlg*)param;
 
-	// TODO: добавьте свой код обработчика уведомлений
 	if(dlg->m_bIsOpenCLInit && dlg->m_BmpNoize != NULL)
 	{
 		// Получаеем код OpenCL
@@ -535,6 +585,146 @@ void COpenCLImageFilterDlg::StartFilter(PVOID* param)
 		dlg->m_bIsImageFiltered = true;
 	} else {
 		/* Not Init */
+	}
+}
+
+void COpenCLImageFilterDlg::StartFilterLA(PVOID* param)
+{
+	COpenCLImageFilterDlg* dlg = (COpenCLImageFilterDlg*)param;
+
+	if(dlg->m_BmpNoize != NULL)
+	{
+		// получаем высоту и ширину изображения
+		int width = dlg->m_BmpNoize->GetWidth();
+		int height = dlg->m_BmpNoize->GetHeight();
+
+		dlg->m_BmpOut = dlg->m_BmpNoize->Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppRGB);
+
+		// Декодим изображение
+		Gdiplus::BitmapData bitmapDataNoise;
+		Gdiplus::BitmapData bitmapDataOut;
+
+		dlg->m_BmpNoize->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapDataNoise);
+		dlg->m_BmpOut->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, &bitmapDataOut);
+
+		
+		int stride = bitmapDataNoise.Stride;
+		int n = width * height;
+
+		UINT* in = (UINT*)bitmapDataNoise.Scan0;
+		UINT* out = (UINT*)bitmapDataOut.Scan0;
+
+		dlg->mTimeStart = dlg->mTimer.Now();
+		int edge = dlg->m_nEdge;
+		if(edge % 2 != 0)
+			edge += 1;
+		
+		// Запускаем krenel
+		dlg->LAFilter(in, out, width, height, edge);
+
+		dlg->m_BmpNoize->UnlockBits(&bitmapDataNoise);
+		dlg->m_BmpOut->UnlockBits(&bitmapDataOut);
+
+		dlg->m_bIsImageFilteredLA = true;
+	} else {
+		/* Not Init */
+	}
+}
+
+void COpenCLImageFilterDlg::sort(unsigned char* tmp, int n)
+{
+	unsigned char p;
+	for(int k = 0; k < n; k++)
+	{            
+		int minElIndex = k;
+        for(int s = k; s < n; s++)
+		{     
+            if(tmp[minElIndex] > tmp[s])
+			{
+				minElIndex = s;
+            }
+        }
+		p = tmp[k];
+        tmp[k] = tmp[minElIndex];
+        tmp[minElIndex] = p;
+    }
+}
+
+void COpenCLImageFilterDlg::LAFilter(unsigned int* in, unsigned int* out, int width, int height, int edge)
+{
+	for(int y = 0; y < height; y++)
+	{
+		for(int x = 0; x < width; x++)
+		{
+			int tmpSize = edge * edge;
+			unsigned char *colorTmp = new unsigned char[tmpSize]; // Массив для цветов
+			unsigned int *tmp = new unsigned int[tmpSize]; // Создадим массив для фильтрующего окна
+			unsigned int pixel = 0x000000;
+
+			// Берем окно размером edge x edge
+			for(int l = -edge/2; l < edge/2; l++)
+			{
+				int line = l;
+				if(l + y >= height)
+				{
+					line = height - (l + y);
+				}
+				else if(y + l < 0)
+				{
+					line = -(y + l);
+				}
+				for(int r = -edge/2; r < edge/2; r++)
+				{
+					int raw = r;
+					if(r + x >= width)
+					{
+						raw = width - (r + x);
+					}
+					else if(r + x < 0)
+					{
+						raw = -(r + x);
+					}
+
+					tmp[(l + edge/2) * edge + (r + edge/2)] = in[(width * (y + line)) + (x + raw)];
+				}
+			}
+	
+			// Красный
+			for(int i = 0; i < tmpSize; i++)
+			{
+				colorTmp[i] = RED(tmp[i]);
+			}
+
+			sort(colorTmp, tmpSize);
+
+			pixel = pixel + OUTRED(colorTmp[(edge * edge - 1) / 2]);
+
+			// Зеленый
+			for(int i = 0; i < tmpSize; i++)
+			{
+				colorTmp[i] = GREEN(tmp[i]);
+			}
+
+			sort(colorTmp, tmpSize);
+
+			pixel = pixel + OUTGREEN(colorTmp[(edge * edge - 1) / 2]);
+
+			// Синий
+			for(int i = 0; i < tmpSize; i++)
+			{
+				colorTmp[i] = BLUE(tmp[i]);
+			}
+
+			sort(colorTmp, tmpSize);
+
+			pixel = pixel + OUTBLUE(colorTmp[(edge * edge - 1) / 2]);
+
+			// Записываем в пиксель медиану (центральный пиксель)
+			out[width * y + x] = pixel;
+
+			delete [] tmp;
+			delete [] colorTmp;
+		}
 	}
 }
 

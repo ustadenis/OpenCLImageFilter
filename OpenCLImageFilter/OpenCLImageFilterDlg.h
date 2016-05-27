@@ -52,6 +52,15 @@ protected:
 	static void StartFilter(PVOID* param);
 
 	/**
+	 * Поток для выполнения фильтрации линейным алгоритмом
+	 */
+	static void StartFilterLA(PVOID* param);
+
+	void LAFilter(unsigned int* in, unsigned int* out, int width, int height, int edge);
+
+	void sort(unsigned char* tmp, int n);
+
+	/**
 	 * Зашумление ищображения
 	 */
 	void AddNoise(unsigned int* image, int width, int height);
@@ -66,7 +75,8 @@ private:
 	bool m_bIsOpenCLInit; // Флаг готовности OpenCL
 	bool m_bIsPlatformsReady; // Флаг готовности платформ
 	bool m_bIsDevicesReady; // Флаг готовности устройств
-	bool m_bIsImageFiltered; // Флаг готовности устройств
+	bool m_bIsImageFiltered; // Флаг готовности фильтрации
+	bool m_bIsImageFilteredLA;
 
 	double mTimeStart;
 	Timer mTimer;
@@ -86,14 +96,17 @@ public:
 	afx_msg void OnBnClickedAddnoisebutton();
 	afx_msg void OnBnClickedStartbutton();
 	afx_msg void OnBnClickedBrowsebutton();
+	afx_msg void OnBnClickedUsealldevicescheck();
 
 	COpenCL m_OpenCL; // Объект для работы с OpenCL
 
 	int m_nEdge; // Глубина фильтрации
 	int m_nNoizeLevel; // Уровень шума
+	double m_nTime;
 
 	CString m_sOpenCLStatus; // Индикатор готовности OpenCL
 	CString m_sFindDir; // Путь к файлу изображения
+	CString m_sImageSize;
 
 	CImageWnd mImage; // Отрисовка исходного изображения
 	CImageWnd mImageNoize; // Отрисовка зашумленного изображения
@@ -102,11 +115,12 @@ public:
 	CButton m_GetPLatformsButton; // Кнопка получения платформ
 	CButton m_StartButton; // Кнопка начала фильтрации 
 	CButton m_NoizeButton; // Кнопка начала зашумления
+	CButton m_UseAllDevicesButton;
+	CButton m_LinearAlgorithm;
 
 	CComboBox m_PlatformsListBox; // Комбо платформ
 	CComboBox m_GetDevicesListBox; // Комбо устройств
-	double m_nTime;
-	afx_msg void OnBnClickedUsealldevicescheck();
+
 	BOOL m_bUseAllDevices;
-	CButton m_UseAllDevicesButton;
+	BOOL m_bLinearAlgorithm;
 };
