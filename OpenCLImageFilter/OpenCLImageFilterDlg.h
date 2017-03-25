@@ -3,7 +3,6 @@
 //
 
 #pragma once
-#include "COpenCL.h"
 #include "imagewnd.h"
 #include "afxwin.h"
 #include "afxcmn.h"
@@ -12,6 +11,32 @@
 // диалоговое окно COpenCLImageFilterDlg
 class COpenCLImageFilterDlg : public CDialogEx
 {
+	// Таймер
+	class Timer
+	{
+		LARGE_INTEGER _freq;
+		LARGE_INTEGER _last;
+
+	public:
+
+		Timer()
+		{
+			::QueryPerformanceFrequency(&_freq);
+			Reset();
+		}
+
+		void Reset()
+		{
+			::QueryPerformanceCounter(&_last);
+		}
+
+		double Now()
+		{
+			LARGE_INTEGER now;
+			::QueryPerformanceCounter(&now);
+			return 1000.0 *(now.QuadPart - _last.QuadPart) / _freq.QuadPart;
+		}
+	};
 // Создание
 public:
 	COpenCLImageFilterDlg(CWnd* pParent = NULL);	// стандартный конструктор
@@ -35,40 +60,45 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 	/**
-	 * Поток инициализации OpenCL
+	 * Поток для выполнения фильтрации линейным алгоритмом
 	 */
-	static void InitOpenCL(PVOID* param);
+	static void StartFilterMedian(PVOID* param);
+
 	/**
-	 * Поток для получения платформ
+	 * Медианный фильтр
 	 */
-	static void GetPlatformsThread(PVOID* param);
+	void MedianFilter(unsigned int* in, unsigned int* out, int width, int height, int edge);
+
 	/**
-	 * Поток для получения устройств
-	 */
-	static void GetDevicesThread(PVOID* param);
-	/**
-	 * Поток для выполнения фильтрации
-	 */
+	* Поток для выполнения фильтрации линейным алгоритмом
+	*/
 	static void StartFilter(PVOID* param);
 
 	/**
-	 * Поток для выполнения фильтрации линейным алгоритмом
-	 */
-	static void StartFilterLA(PVOID* param);
-
-	void LAFilter(unsigned int* in, unsigned int* out, int width, int height, int edge);
+	* Медианный фильтр
+	*/
+	void BoxFilter(unsigned int* in, unsigned int* out, int width, int height, int edge);
 
 	void sort(unsigned char* tmp, int n);
 
-	/**
-	 * Зашумление ищображения
-	 */
-	void AddNoise(unsigned int* image, int width, int height);
+	double det(unsigned char* tmp, int size);
+
+	unsigned char* createMasWithoutCollumn(unsigned char* mas, int size, int collumnIndex);
 
 	/**
-	 * Получение устройств
+	 * Gaussian noise
 	 */
-	void GetDevices();
+	void AddGaussianNoise(unsigned int* image, int width, int height);
+
+	/**
+	* Salt and Pepper noise
+	*/
+	void AddSaltAndPepperNoise(unsigned int* image, int width, int height);
+
+	/**
+	* Impulse noise
+	*/
+	void AddImpulseNoise(unsigned int* image, int width, int height);
 
 private:
 
@@ -85,20 +115,11 @@ private:
 	Gdiplus::Bitmap *m_BmpNoize; // Зашумленное изображение
 	Gdiplus::Bitmap *m_BmpOut; // Изображение после фильтра
 
-	VECTOR_CLASS<Platform> platforms; // Вектор платформ
-	VECTOR_CLASS<Device> devices; // Вектор устройств
-
 public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
-	afx_msg void OnBnClickedGetplatformsbutton();
-	afx_msg void OnCbnSelchangePlatformscombo();
-	afx_msg void OnCbnSelchangeDevicescombo();
 	afx_msg void OnBnClickedAddnoisebutton();
 	afx_msg void OnBnClickedStartbutton();
 	afx_msg void OnBnClickedBrowsebutton();
-	afx_msg void OnBnClickedUsealldevicescheck();
-
-	COpenCL m_OpenCL; // Объект для работы с OpenCL
 
 	int m_nEdge; // Глубина фильтрации
 	int m_nNoizeLevel; // Уровень шума
@@ -123,4 +144,10 @@ public:
 
 	BOOL m_bUseAllDevices;
 	BOOL m_bLinearAlgorithm;
+	afx_msg void OnBnClickedAddnoisebutton2();
+	afx_msg void OnBnClickedAddnoisebutton3();
+	CButton m_SaltAndPepperNoise;
+	CButton m_ImpulseNoise;
+	afx_msg void OnClickedStartbutton2();
+	CButton m_StartBoxFilter;
 };
