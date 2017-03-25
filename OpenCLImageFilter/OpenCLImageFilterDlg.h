@@ -60,30 +60,28 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 	/**
-	 * Поток для выполнения фильтрации линейным алгоритмом
-	 */
-	static void StartFilterMedian(PVOID* param);
-
-	/**
-	 * Медианный фильтр
-	 */
-	void MedianFilter(unsigned int* in, unsigned int* out, int width, int height, int edge);
-
-	/**
 	* Поток для выполнения фильтрации линейным алгоритмом
 	*/
 	static void StartFilter(PVOID* param);
 
 	/**
-	* Медианный фильтр
+	* Box фильтр
 	*/
 	void BoxFilter(unsigned int* in, unsigned int* out, int width, int height, int edge);
 
+	/**
+	* Медианный фильтр
+	*/
+	void MedianFilter(unsigned int* in, unsigned int* out, int width, int height, int edge);
+
+	/**
+	* Gaussian фильтр
+	*/
+	void GaussianFilter(unsigned int* in, unsigned int* out, int width, int height, int edge);
+
 	void sort(unsigned char* tmp, int n);
 
-	double det(unsigned char* tmp, int size);
-
-	unsigned char* createMasWithoutCollumn(unsigned char* mas, int size, int collumnIndex);
+	double sum(unsigned char* tmp, int size);
 
 	/**
 	 * Gaussian noise
@@ -150,4 +148,5 @@ public:
 	CButton m_ImpulseNoise;
 	afx_msg void OnClickedStartbutton2();
 	CButton m_StartBoxFilter;
+	afx_msg void OnBnClickedStartbutton3();
 };

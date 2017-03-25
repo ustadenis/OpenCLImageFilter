@@ -110,6 +110,7 @@ BEGIN_MESSAGE_MAP(COpenCLImageFilterDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_ADDNOISEBUTTON2, &COpenCLImageFilterDlg::OnBnClickedAddnoisebutton2)
 	ON_BN_CLICKED(IDC_ADDNOISEBUTTON3, &COpenCLImageFilterDlg::OnBnClickedAddnoisebutton3)
 	ON_BN_CLICKED(IDC_STARTBUTTON2, &COpenCLImageFilterDlg::OnClickedStartbutton2)
+	ON_BN_CLICKED(IDC_STARTBUTTON3, &COpenCLImageFilterDlg::OnBnClickedStartbutton3)
 END_MESSAGE_MAP()
 
 ////////////////////////////////////////////////////////////////////////////
@@ -401,6 +402,11 @@ void COpenCLImageFilterDlg::StartFilter(PVOID* param)
 				dlg->BoxFilter(in, out, width, height, edge);
 				break;
 			}
+			case 2:
+			{
+				dlg->GaussianFilter(in, out, width, height, edge);
+				break;
+			}
 			default:
 				break;
 		}
@@ -541,7 +547,7 @@ void COpenCLImageFilterDlg::BoxFilter(unsigned int* in, unsigned int* out, int w
 				colorTmp[i] = RED(tmp[i]);
 			}
 
-			double d = det(colorTmp, edge);
+			double d = sum(colorTmp, edge);
 
 			pixel = pixel + OUTRED((unsigned char)(d / tmpSize));
 
@@ -551,7 +557,7 @@ void COpenCLImageFilterDlg::BoxFilter(unsigned int* in, unsigned int* out, int w
 				colorTmp[i] = GREEN(tmp[i]);
 			}
 
-			d = det(colorTmp, edge);
+			d = sum(colorTmp, edge);
 
 			pixel = pixel + OUTGREEN((unsigned char)(d / tmpSize));
 
@@ -561,7 +567,87 @@ void COpenCLImageFilterDlg::BoxFilter(unsigned int* in, unsigned int* out, int w
 				colorTmp[i] = BLUE(tmp[i]);
 			}
 
-			d = det(colorTmp, edge);
+			d = sum(colorTmp, edge);
+
+			pixel = pixel + OUTBLUE((unsigned char)(d / tmpSize));
+
+			// Записываем в пиксель медиану (центральный пиксель)
+			out[width * y + x] = pixel;
+
+			delete[] tmp;
+			delete[] colorTmp;
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////
+
+void COpenCLImageFilterDlg::GaussianFilter(unsigned int* in, unsigned int* out, int width, int height, int edge)
+{
+	for (int y = 0; y < height; y++)
+	{
+		for (int x = 0; x < width; x++)
+		{
+			int tmpSize = edge * edge;
+			unsigned char *colorTmp = new unsigned char[tmpSize]; // Массив для цветов
+			unsigned int *tmp = new unsigned int[tmpSize]; // Создадим массив для фильтрующего окна
+			unsigned int pixel = 0x000000;
+
+			// Берем окно размером edge x edge
+			for (int l = 0; l < edge; l++)
+			{
+				int line = l;
+				if (l + y >= height)
+				{
+					line = height - (l + y);
+				}
+				else if (y + l < 0)
+				{
+					line = -(y + l);
+				}
+				for (int r = 0; r < edge; r++)
+				{
+					int raw = r;
+					if (r + x >= width)
+					{
+						raw = width - (r + x);
+					}
+					else if (r + x < 0)
+					{
+						raw = -(r + x);
+					}
+
+					tmp[l * edge + r] = in[(width * (y + line)) + (x + raw)];
+				}
+			}
+
+			// Красный
+			for (int i = 0; i < tmpSize; i++)
+			{
+				colorTmp[i] = RED(tmp[i]);
+			}
+
+			double d = sum(colorTmp, edge);
+
+			pixel = pixel + OUTRED((unsigned char)(d / tmpSize));
+
+			// Зеленый
+			for (int i = 0; i < tmpSize; i++)
+			{
+				colorTmp[i] = GREEN(tmp[i]);
+			}
+
+			d = sum(colorTmp, edge);
+
+			pixel = pixel + OUTGREEN((unsigned char)(d / tmpSize));
+
+			// Синий
+			for (int i = 0; i < tmpSize; i++)
+			{
+				colorTmp[i] = BLUE(tmp[i]);
+			}
+
+			d = sum(colorTmp, edge);
 
 			pixel = pixel + OUTBLUE((unsigned char)(d / tmpSize));
 
@@ -597,66 +683,13 @@ void COpenCLImageFilterDlg::sort(unsigned char* tmp, int n)
 
 ////////////////////////////////////////////////////////////////////////////
 
-double COpenCLImageFilterDlg::det(unsigned char* tmp, int size)
+double COpenCLImageFilterDlg::sum(unsigned char* tmp, int size)
 {
-	/*if (size == 1) 
-	{
-		return tmp[0];
-	}
-	else 
-	{
-		double res = 0;
-		int k = 1;
-		for (int i = 0; i < size; i++)
-		{
-			unsigned char* newmas = createMasWithoutCollumn(tmp, size, i);
-			res = res + k * tmp[i] * det(newmas, size - 1);
-			k *= -1;
-			delete[] newmas;
-		}
-		return res;
-	}*/
 	double res = 0;
 	for (int i = 0; i < size * size; i++)
 	{
 		res += tmp[i];
 	}
-	return res;
-}
-
-////////////////////////////////////////////////////////////////////////////
-
-unsigned char* COpenCLImageFilterDlg::createMasWithoutCollumn(unsigned char* mas, int size, int collumnIndex)
-{
-	int newSize = size - 1;
-	unsigned char* res = new unsigned char[newSize * newSize];
-
-	for (int i = 1; i < size; i++)
-	{
-		for (int j = 0; j < newSize; j++)
-		{
-			if (j < collumnIndex)
-			{
-				res[(i - 1) * newSize + j] = mas[i * size + j];
-			}
-			else
-			{
-				res[(i - 1) * newSize + j] = mas[i * size + j + 1];
-			}
-		}
-	}
-
-	/*for (int i = 0; i < newSize * newSize; i++)
-	{
-		if (((i + 1) * size) < collumnIndex * size) 
-		{
-			res[i] = mas[i * size];
-		}
-		else
-		{
-			res[i] = mas[(i + 1) * size + 1];
-		}
-	}*/
 	return res;
 }
 
@@ -818,6 +851,27 @@ void COpenCLImageFilterDlg::OnClickedStartbutton2()
 		PVOID* params = new PVOID[2];
 		params[0] = this;
 		params[1] = (PVOID)1;
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartFilter, params, NULL, NULL);
+		SetTimer(TIMER_ID_IMAGE_FILTER_LA, 100, NULL); // Запускаем таймер
+		m_StartButton.EnableWindow(FALSE);
+		m_StartBoxFilter.EnableWindow(FALSE);
+	}
+}
+
+
+void COpenCLImageFilterDlg::OnBnClickedStartbutton3()
+{
+	// TODO: Add your control notification handler code here
+	UpdateData(TRUE);
+	if (!m_bLinearAlgorithm)
+	{
+
+	}
+	else
+	{
+		PVOID* params = new PVOID[2];
+		params[0] = this;
+		params[1] = (PVOID)2;
 		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartFilter, params, NULL, NULL);
 		SetTimer(TIMER_ID_IMAGE_FILTER_LA, 100, NULL); // Запускаем таймер
 		m_StartButton.EnableWindow(FALSE);
