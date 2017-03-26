@@ -666,9 +666,9 @@ void COpenCLImageFilterDlg::GaussianFilter(unsigned int* in, unsigned int* out, 
 					{
 						sum += kernel[krnRow][krnCol];
 						unsigned int p = in[(y + krnRow - 1) * width + x + krnCol - 1];
-						pixel += OUTRED(RED(pixel) + (unsigned char)(RED(p) * kernel[krnRow][krnCol]));
-						pixel += OUTGREEN(GREEN(pixel) + (unsigned char)(GREEN(p) * kernel[krnRow][krnCol]));
-						pixel += OUTBLUE(BLUE(pixel) + (unsigned char)(BLUE(p) * kernel[krnRow][krnCol]));
+						pixel += OUTRED((unsigned char)(RED(p) * kernel[krnRow][krnCol]));
+						pixel += OUTGREEN((unsigned char)(GREEN(p) * kernel[krnRow][krnCol]));
+						pixel += OUTBLUE((unsigned char)(BLUE(p) * kernel[krnRow][krnCol]));
 					}
 				}
 			}
