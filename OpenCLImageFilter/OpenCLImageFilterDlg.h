@@ -83,6 +83,10 @@ protected:
 
 	double sum(unsigned char* tmp, int size);
 
+	double gaussian(double x, double mu, double sigma);
+
+	double** gaussianKernel(int deep, double s);
+
 	/**
 	 * Gaussian noise
 	 */
@@ -149,4 +153,6 @@ public:
 	afx_msg void OnClickedStartbutton2();
 	CButton m_StartBoxFilter;
 	afx_msg void OnBnClickedStartbutton3();
+	double m_Sigma;
+	CButton m_StartGaussianFilter;
 };

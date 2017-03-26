@@ -23,6 +23,8 @@
 
 #define TIMER_ID_IMAGE_FILTER_LA 0
 
+#define PI 3.1415
+
 // Диалоговое окно CAboutDlg используется для описания сведений о приложении
 
 class CAboutDlg : public CDialogEx
@@ -63,7 +65,7 @@ END_MESSAGE_MAP()
 COpenCLImageFilterDlg::COpenCLImageFilterDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(COpenCLImageFilterDlg::IDD, pParent)
 	, m_sFindDir(_T(""))
-	, m_nEdge(4)
+	, m_nEdge(3)
 	, m_nNoizeLevel(15)
 	, m_BmpIn(nullptr)
 	, m_BmpNoize(nullptr)
@@ -71,6 +73,7 @@ COpenCLImageFilterDlg::COpenCLImageFilterDlg(CWnd* pParent /*=NULL*/)
 	, m_nTime(0)
 	, m_sImageSize(_T(""))
 	, m_bLinearAlgorithm(TRUE)
+	, m_Sigma(0.84)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -95,6 +98,8 @@ void COpenCLImageFilterDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_ADDNOISEBUTTON2, m_SaltAndPepperNoise);
 	DDX_Control(pDX, IDC_ADDNOISEBUTTON3, m_ImpulseNoise);
 	DDX_Control(pDX, IDC_STARTBUTTON2, m_StartBoxFilter);
+	DDX_Text(pDX, IDC_EDIT4, m_Sigma);
+	DDX_Control(pDX, IDC_STARTBUTTON3, m_StartGaussianFilter);
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -224,6 +229,7 @@ void COpenCLImageFilterDlg::OnTimer(UINT_PTR nIDEvent)
 				m_bIsImageFilteredLA = false;
 				m_StartButton.EnableWindow(TRUE);
 				m_StartBoxFilter.EnableWindow(TRUE);
+				m_StartGaussianFilter.EnableWindow(TRUE);
 				m_nTime = floor((mTimer.Now() - mTimeStart) * 1000) / 1000.;
 				UpdateData(FALSE);
 				KillTimer(TIMER_ID_IMAGE_FILTER_LA);
@@ -316,6 +322,7 @@ void COpenCLImageFilterDlg::OnBnClickedStartbutton()
 		SetTimer(TIMER_ID_IMAGE_FILTER_LA, 100, NULL); // Запускаем таймер
 		m_StartButton.EnableWindow(FALSE);
 		m_StartBoxFilter.EnableWindow(FALSE);
+		m_StartGaussianFilter.EnableWindow(FALSE);
 	}
 }
 
@@ -584,80 +591,46 @@ void COpenCLImageFilterDlg::BoxFilter(unsigned int* in, unsigned int* out, int w
 
 void COpenCLImageFilterDlg::GaussianFilter(unsigned int* in, unsigned int* out, int width, int height, int edge)
 {
+	int size = 2 * edge + 1;
+	double **kernel = gaussianKernel(edge, m_Sigma);
+
 	for (int y = 0; y < height; y++)
 	{
 		for (int x = 0; x < width; x++)
 		{
-			int tmpSize = edge * edge;
-			unsigned char *colorTmp = new unsigned char[tmpSize]; // Массив для цветов
-			unsigned int *tmp = new unsigned int[tmpSize]; // Создадим массив для фильтрующего окна
 			unsigned int pixel = 0x000000;
+			double sum = 0;
 
-			// Берем окно размером edge x edge
-			for (int l = 0; l < edge; l++)
+			for (int krnRow = 0; krnRow < size; krnRow++)
 			{
-				int line = l;
-				if (l + y >= height)
+				for (int krnCol = 0; krnCol < size; krnCol++)
 				{
-					line = height - (l + y);
-				}
-				else if (y + l < 0)
-				{
-					line = -(y + l);
-				}
-				for (int r = 0; r < edge; r++)
-				{
-					int raw = r;
-					if (r + x >= width)
+					if (((y + krnRow - 1) >= 0) && ((y + krnRow - 1) < width) && ((x + krnCol - 1) >= 0) && ((x + krnCol - 1) < height))
 					{
-						raw = width - (r + x);
+						sum += kernel[krnRow][krnCol];
+						unsigned int p = in[(y + krnRow - 1) * width + x + krnCol - 1];
+						pixel += OUTRED(RED(pixel) + (unsigned char)(RED(p) * kernel[krnRow][krnCol]));
+						pixel += OUTGREEN(GREEN(pixel) + (unsigned char)(GREEN(p) * kernel[krnRow][krnCol]));
+						pixel += OUTBLUE(BLUE(pixel) + (unsigned char)(BLUE(p) * kernel[krnRow][krnCol]));
 					}
-					else if (r + x < 0)
-					{
-						raw = -(r + x);
-					}
-
-					tmp[l * edge + r] = in[(width * (y + line)) + (x + raw)];
 				}
 			}
 
-			// Красный
-			for (int i = 0; i < tmpSize; i++)
-			{
-				colorTmp[i] = RED(tmp[i]);
-			}
+			unsigned int tmp = 0x000000;
 
-			double d = sum(colorTmp, edge);
+			tmp += OUTRED((unsigned char)(RED(pixel)/sum));
+			tmp += OUTGREEN((unsigned char)(GREEN(pixel) / sum));
+			tmp += OUTBLUE((unsigned char)(BLUE(pixel) / sum));
 
-			pixel = pixel + OUTRED((unsigned char)(d / tmpSize));
-
-			// Зеленый
-			for (int i = 0; i < tmpSize; i++)
-			{
-				colorTmp[i] = GREEN(tmp[i]);
-			}
-
-			d = sum(colorTmp, edge);
-
-			pixel = pixel + OUTGREEN((unsigned char)(d / tmpSize));
-
-			// Синий
-			for (int i = 0; i < tmpSize; i++)
-			{
-				colorTmp[i] = BLUE(tmp[i]);
-			}
-
-			d = sum(colorTmp, edge);
-
-			pixel = pixel + OUTBLUE((unsigned char)(d / tmpSize));
-
-			// Записываем в пиксель медиану (центральный пиксель)
-			out[width * y + x] = pixel;
-
-			delete[] tmp;
-			delete[] colorTmp;
+			out[y*width + x] = tmp;
 		}
 	}
+
+	for (int i = 0; i < size; i++)
+	{
+		delete[] kernel[i];
+	}
+	delete[] kernel;
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -679,6 +652,48 @@ void COpenCLImageFilterDlg::sort(unsigned char* tmp, int n)
         tmp[k] = tmp[minElIndex];
         tmp[minElIndex] = p;
     }
+}
+
+////////////////////////////////////////////////////////////////////////////
+
+double COpenCLImageFilterDlg::gaussian(double x, double mu, double sigma)
+{
+	return ((1 / (sigma*PI))*exp(-(((x - mu) / (sigma))*((x - mu) / (sigma))) / 2.0)); //normal distribution function
+}
+
+
+double** COpenCLImageFilterDlg::gaussianKernel(int deep, double s)
+{
+	int size = 2 * deep + 1;
+	double **result = new double*[size];
+	for (int i = 0; i < size; i++)
+	{
+		result[i] = new double[size];
+	}
+	if (s == 0)
+	{
+		s = deep / 2;
+	}
+
+	double sum = 0;
+	for (int i = 0; i < size; i++)
+	{
+		for (int j = 0; j < size; j++)
+		{
+			result[i][j] = gaussian(i, deep, s)*gaussian(j, deep, s);
+			sum += result[i][j];
+		}
+	}
+
+	for (int i = 0; i < size; i++)
+	{
+		for (int j = 0; j < size; j++)
+		{
+			result[i][j] /= sum;
+		}
+	}
+
+	return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -735,6 +750,7 @@ void COpenCLImageFilterDlg::OnBnClickedAddnoisebutton()
 		// Включаем кнопку фильтрации
 		m_StartButton.EnableWindow();
 		m_StartBoxFilter.EnableWindow();
+		m_StartGaussianFilter.EnableWindow();
 	}
 	else {
 		/* Not Init */
@@ -782,6 +798,7 @@ void COpenCLImageFilterDlg::OnBnClickedAddnoisebutton2()
 		// Включаем кнопку фильтрации
 		m_StartButton.EnableWindow();
 		m_StartBoxFilter.EnableWindow();
+		m_StartGaussianFilter.EnableWindow();
 	}
 	else {
 		/* Not Init */
@@ -829,6 +846,7 @@ void COpenCLImageFilterDlg::OnBnClickedAddnoisebutton3()
 		// Включаем кнопку фильтрации
 		m_StartButton.EnableWindow();
 		m_StartBoxFilter.EnableWindow();
+		m_StartGaussianFilter.EnableWindow();
 	}
 	else {
 		/* Not Init */
@@ -855,6 +873,7 @@ void COpenCLImageFilterDlg::OnClickedStartbutton2()
 		SetTimer(TIMER_ID_IMAGE_FILTER_LA, 100, NULL); // Запускаем таймер
 		m_StartButton.EnableWindow(FALSE);
 		m_StartBoxFilter.EnableWindow(FALSE);
+		m_StartGaussianFilter.EnableWindow(FALSE);
 	}
 }
 
@@ -876,5 +895,6 @@ void COpenCLImageFilterDlg::OnBnClickedStartbutton3()
 		SetTimer(TIMER_ID_IMAGE_FILTER_LA, 100, NULL); // Запускаем таймер
 		m_StartButton.EnableWindow(FALSE);
 		m_StartBoxFilter.EnableWindow(FALSE);
+		m_StartGaussianFilter.EnableWindow(FALSE);
 	}
 }
