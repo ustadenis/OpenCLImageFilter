@@ -116,6 +116,7 @@ BEGIN_MESSAGE_MAP(COpenCLImageFilterDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_ADDNOISEBUTTON3, &COpenCLImageFilterDlg::OnBnClickedAddnoisebutton3)
 	ON_BN_CLICKED(IDC_STARTBUTTON2, &COpenCLImageFilterDlg::OnClickedStartbutton2)
 	ON_BN_CLICKED(IDC_STARTBUTTON3, &COpenCLImageFilterDlg::OnBnClickedStartbutton3)
+	ON_BN_CLICKED(IDC_STARTBUTTON4, &COpenCLImageFilterDlg::OnBnClickedStartbutton4)
 END_MESSAGE_MAP()
 
 ////////////////////////////////////////////////////////////////////////////
@@ -370,7 +371,63 @@ void COpenCLImageFilterDlg::StartFilter(PVOID* param)
 	COpenCLImageFilterDlg* dlg = (COpenCLImageFilterDlg*)param[0];
 	int type = (int)param[1];
 
-	if(dlg->m_BmpNoize != NULL)
+	if (dlg->m_BmpOut != NULL)
+	{
+		// получаем высоту и ширину изображения
+		int width = dlg->m_BmpNoize->GetWidth();
+		int height = dlg->m_BmpNoize->GetHeight();
+
+		Gdiplus::Bitmap *tmpBmp = dlg->m_BmpOut->Clone(Gdiplus::Rect(0, 0, width, height), PixelFormat32bppRGB);
+
+		// Декодим изображение
+		Gdiplus::BitmapData bitmapDataNoise;
+		Gdiplus::BitmapData bitmapDataOut;
+
+		//dlg->m_BmpNoize->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapDataNoise);
+		dlg->m_BmpOut->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, &bitmapDataOut);
+		tmpBmp->LockBits(&Gdiplus::Rect(0, 0, width, height), Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapDataNoise);
+
+
+		int stride = bitmapDataNoise.Stride;
+		int n = width * height;
+
+		UINT* in = (UINT*)bitmapDataNoise.Scan0;
+		UINT* out = (UINT*)bitmapDataOut.Scan0;
+
+		dlg->mTimeStart = dlg->mTimer.Now();
+		int edge = dlg->m_nEdge;
+		if (edge % 2 != 0)
+			edge += 1;
+
+		switch (type)
+		{
+		case 0:
+		{
+				  dlg->MedianFilter(in, out, width, height, edge);
+				  break;
+		}
+		case 1:
+		{
+				  dlg->BoxFilter(in, out, width, height, edge);
+				  break;
+		}
+		case 2:
+		{
+				  dlg->GaussianFilter(in, out, width, height, edge);
+				  break;
+		}
+		default:
+			break;
+		}
+
+		tmpBmp->UnlockBits(&bitmapDataNoise);
+		dlg->m_BmpOut->UnlockBits(&bitmapDataOut);
+
+		dlg->m_bIsImageFilteredLA = true;
+
+		delete tmpBmp;
+	}
+	else if(dlg->m_BmpNoize != NULL)
 	{
 		// получаем высоту и ширину изображения
 		int width = dlg->m_BmpNoize->GetWidth();
@@ -896,5 +953,15 @@ void COpenCLImageFilterDlg::OnBnClickedStartbutton3()
 		m_StartButton.EnableWindow(FALSE);
 		m_StartBoxFilter.EnableWindow(FALSE);
 		m_StartGaussianFilter.EnableWindow(FALSE);
+	}
+}
+
+
+void COpenCLImageFilterDlg::OnBnClickedStartbutton4()
+{
+	// TODO: Add your control notification handler code here
+	if (m_BmpOut != NULL) {
+		mImageFiltered.Clear();
+		m_BmpOut = NULL;
 	}
 }

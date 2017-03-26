@@ -155,4 +155,5 @@ public:
 	afx_msg void OnBnClickedStartbutton3();
 	double m_Sigma;
 	CButton m_StartGaussianFilter;
+	afx_msg void OnBnClickedStartbutton4();
 };
